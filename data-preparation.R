@@ -236,69 +236,26 @@ d_load = d_load %>% mutate(missing_td = ifelse(is.na(total_distance_daily), 1, 0
                            missing_load = ifelse(is.na(load), 1, 0),
                            missing_load_text = ifelse(is.na(load), "Missing Explicitly", "Not Missing"))
 
+#------------------------------------- Step 7: Add dates with neither sRPE data, nor GPS data, nor implicit free day data, to each player
 
-d_load %>% View()
+#Missing Data - The Well of Lost Potential
 
-#--------------number of players
-# player table
-d_player_full = dbGetQuery(db_stromsgodset, 
-                           paste0("SELECT *
-                  FROM training_data_2019.player")) %>% as_tibble()
+# the idea is to calculate 
+# number of responses / number of questionnaires sent
 
-# number of players
-nrow(d_player_id)
+# if study startdate and study enddate is unknown, one can find the 
+# first and last dates available in the entire dataset 
+# here, we know the last date is 2019-12-03
+# and we find the first date from the data
+first_date = d_load %>% summarise(min(training_date, na.rm = TRUE)) %>% pull()
+d_load_full = d_load %>% group_by(player_id) %>% 
+         tidyr::complete(training_date = seq.Date(first_date, lubridate::as_date("2019-12-03"), by = "day")) %>% ungroup()
 
-# number of players with gps data
-n_distinct(d_gps$player_id)
+d_load_full = d_load_full %>% mutate(missing_td = ifelse(is.na(missing_td), 2, missing_td),
+                           missing_td_text = ifelse(is.na(missing_td_text), "GPS use unknown", missing_td_text),
+                           missing_load = ifelse(is.na(missing_load), 2, missing_load),
+                           missing_load_text = ifelse(is.na(missing_load_text), "Missing Implicitly", missing_load_text))
 
-#---------------------------------------------Missing data
-
-n_measures_expected = nrow(d_gps)*365
-
-match_week_dates = d_match_weeks %>% distinct(datekey)
-d_gps_match_weeks = d_gps %>% filter(datekey %in% match_week_dates$datekey)
-
-# number and percentage missing values
-find_missing = function(x){
-  x = enquo(x)
-  d_gps %>% summarise(n_missing = sum(is.na(!!x)), n_nonmissing = sum(!is.na(!!x)), prop = n_missing/n_nonmissing)
-}
-
-find_missing(total_distance)
-
-# number of missing match week days
-gps_days = d_gps_match_weeks %>% distinct(datekey)
-date_days = d_match_weeks %>% distinct(datekey)
-nrow(gps_days)/nrow(date_days)
-
-
-
-
-
-
-
-
-
-# Step 4: Obtain RPE data, add implicit days where the players did not have any training (day after match, weekends etc.)
-d_date_full = dbGetQuery(db_stromsgodset, 
-                         paste0("SELECT *
-                  FROM training_data_2019.date_dimension")) %>% as_tibble()
-
-d_rpe_full = dbGetQuery(db_stromsgodset, 
-                        paste0("SELECT *
-                  FROM training_data_2019.temp_training_log")) %>% as_tibble()
-
-d_inj_full = dbGetQuery(db_stromsgodset, 
-                        paste0("SELECT *
-                  FROM training_data_2019.temp_injury_illness")) %>% as_tibble()
-
-folder = "O:\\Prosjekter\\Dalen-Lorentsen - Belastningsstyring - prosjekt 1 - metode\\Data\\stromsgodset\\raw_data\\"
-player_cols = cols(
-  name = col_character(),
-  id = col_integer(),
-  position = col_character(),
-  position_group = col_character()
-)
-d_player = read_delim(paste0(folder, "player_mappings.csv"), delim = ";", col_types = player_cols) %>% select(-name)
-
-
+# missing can now be calculated
+d_load_full %>% count(missing_td, missing_td_text)
+d_load_full %>% count(missing_load, missing_load_text)
