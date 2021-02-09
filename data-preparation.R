@@ -4,10 +4,11 @@
 # Step 2: Remove ostensibly erroneous GPS data at the second level (this becomes part of missing data)
 # Step 3: Remove ostensibly erroneous GPS data at the daily level
 # Step 4: Obtain RPE data
-# Step 5: Combine RPE and GPS data at the daily level so that we have both in the same dataset
-# Step 6: Add implicit days where the players did not have any training (day after match, weekends etc.)
-# Step 7: anonymize the ID so that the data used in simulations can later be uploaded as-is
-# Step 8: save the final dataset to be used in simulations
+# Step 5: Find implicit days where the players did not have any training (day after match, weekends etc.)
+# Step 6: Combine RPE and GPS data at the daily level so that we have both in the same dataset
+# Step 7: Add dates with neither sRPE data, nor GPS data, nor implicit free day data, to each player
+# Step 8: Anonymize the ID so that the data used in simulations can later be uploaded as-is
+# Step 9: save the final dataset to be used in simulations
 
 # required packages to run this script
 library(DBI) # for database extraction with SQL
@@ -19,17 +20,16 @@ library(devEMF) # for saving emf files
 library(lmisc) # for bjsm colors and ggplot themes
 
 
-# Step 1: obtain GPS data and extract total distance------------------------------------
+#-------------------------------------- Step 1: obtain GPS data and extract total distance
 
-#---------------------------------------Connecting to database
+# Connecting to database
 db = 'stromsgodset'  #provide the name of your db
 db_port = '5432'  # or any other port specified by the DBA
 db_user = "postgres" 
 db_password = "postgresql"
 db_stromsgodset = dbConnect(RPostgreSQL::PostgreSQL(), dbname = db, port=db_port, user=db_user, password=db_password) 
 
-#--------------------------------------Obtaining data
-
+# Obtaining data
 d_gps_full = dbGetQuery(db_stromsgodset, 
                         paste0("SELECT *
                   FROM training_data_2019.training_data")) %>% as_tibble()
@@ -37,7 +37,7 @@ d_gps_full = dbGetQuery(db_stromsgodset,
 d_td_full = d_gps_full %>% select(player_id, dt, datekey, session_id, total_distance, injury_id)
 remove(d_gps_full)
 
-# Step 2: Remove ostensibly erroneous GPS data at the second level (this becomes part of missing data)
+#-------------------------------------------- Step 2: Remove ostensibly erroneous GPS data at the second level (this becomes part of missing data)
 
 # From Garth's Master Thesis:
 # Due to the dependence of these features upon values
@@ -78,7 +78,7 @@ calc_n_change = function(x){
 
 d_n_cleaned = bind_rows(calc_n_change(d_td_full$total_distance)) %>% mutate(label = "Total Distance")
 
-#----------------- Step 3: Remove ostensibly erroneous GPS data at the daily level
+#--------------------------------------------------------- Step 3: Remove ostensibly erroneous GPS data at the daily level
 
 # We will first calculate the sum of minutes in acitivity per person per day
 d_duration = d_td %>% 
@@ -95,19 +95,23 @@ d_td_daily = d_duration  %>% select(all_of(vars), total_distance, sum_minutes) %
   distinct(player_id, datekey, .keep_all = TRUE) %>% 
   # if the player has 0 sum minutes, they have 0 TD
   mutate(total_distance_daily = ifelse(sum_minutes == 0, 0, total_distance_daily),
-         td_per_minute = total_distance_daily/sum_minutes)
+         total_distance_minute = total_distance_daily/sum_minutes) %>% ungroup() %>% select(-total_distance)
 
 # looks pretty good:
-d_td_daily %>% arrange(desc(td_per_minute))
+d_td_daily %>% arrange(desc(total_distance_minute))
 
-# Step 4: Obtain RPE data
-# Step 5: Combine RPE and GPS data at the daily level so that we have both in the same dataset
+#---------------------------------------------------------------------Step 4: Obtain RPE data
+d_srpe_full = dbGetQuery(db_stromsgodset, 
+                         paste0("SELECT *
+                  FROM training_data_2019.temp_training_log")) %>% as_tibble() 
+d_srpe = d_srpe_full %>% select(player_id, training_date = planned_date, activity, duration, difficulty, load)
 
+# we sum multiple sessions on the same day per individual for a daily sRPE measure
+d_srpe = d_srpe %>% group_by(player_id, training_date) %>% summarise(load = sum(load, na.rm = TRUE))
 
+#--------------------------------------------------------------------- Step 5: Find implicit days where the players did not have any training (day after match, weekends etc.)
 
-# Step 6: Add implicit days where the players did not have any training (day after match, weekends etc.)
-
-# Now we want to make sure that dates where the
+# We want to make sure that dates where the
 # players didn't participate in any activity are included
 # as these are implicitly sRPE and Total distance = 0.
 # unless any other information is given, 
@@ -147,6 +151,9 @@ d_match_weeks = d_match_weeks %>% mutate(mc_day = case_when(match_indicator ~ "M
                                                             lead(match_indicator, 4) ~ "M-4")
 )
 
+# some days are missing because the week had the match placed on an untraditional day
+# d_match_weeks %>% filter(is.na(mc_day))
+
 # And for two matches per week or more:
 # M
 # m-2
@@ -172,36 +179,65 @@ d_free_weeks = d_date_full %>% filter(n_matches == 0) %>% mutate(mc_day = "Non-m
 # combine data
 d_weeks_full = bind_rows(d_free_weeks, d_match_weeks, d_match_weeks_dbl) %>% arrange(training_date)
 
+# this is now the ready date dataset which we will combine later to get days without training
+d_weeks = d_weeks_full %>% select(datekey, training_date, week_nr, match_indicator, n_matches, mc_day)
 
-# We can now combine our weeks with the GPS data
-# and we will know 
+#--------------------------------------------Step 6: Combine RPE and GPS data at the daily level so that we have both in the same dataset
 
-# adding match week day data
-d_gps_match_weeks = d_gps_match_weeks %>% full_join(d_match_weeks, by = "datekey") 
+# since player is the highest level in the ID-hierarchy (player, training date, session id)
+# will will first combine to the player data so we can later calculate how many players have 
+# missing data
+d_player = dbGetQuery(db_stromsgodset, 
+                           paste0("SELECT *
+                  FROM training_data_2019.player")) %>% as_tibble() %>% select(player_id)
 
-d_gps_all = d_gps_match_weeks %>% left_join(d_player, by = c("player_id" = "id"))
+# add GPS data with leftjoin so we keep players without GPS values
+d_player_gps = d_player %>% left_join(d_td_daily, by = "player_id")
 
-remove(d_gps_match_weeks)
-remove(d_gps_full)
-remove(d_gps)
+# to combine with srpe data, we need the training date, which we gathered from date data
+# so we combine date data first
+d_player_gps_dt = d_player_gps %>% left_join(d_weeks, by = "datekey")
+d_srpe_dt = d_srpe %>% left_join(d_weeks, by = "training_date")
 
-remove(d_td_full)
-d_td
+# add sRPE data with fulljoin so we keep players without sRPE values
+d_load = d_player_gps_dt %>% full_join(d_srpe_dt, by = c("player_id", "training_date", "datekey", "week_nr", "match_indicator", "n_matches", "mc_day"))
+
+# days that are M+1 or M+2 are sRPE = 0 and total_distance = 0
+d_load  = d_load %>% mutate(load = ifelse(is.na(load) & (mc_day == "M+2" | mc_day == "M+1"), 0, load),
+                            total_distance_daily = ifelse(is.na(total_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_daily),
+                            total_distance_minute = ifelse(is.na(total_distance_minute) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_minute))
+
+# validation checks
+# d_load should include:
+# all players in d_player regardless of whether they have any total distance or sRPE data
+n_distinct(d_player$player_id)
+n_distinct(d_load$player_id)
+
+# all players who have either TD data, sRPE data or both
+d_load %>% filter(is.na(load))
+d_load %>% filter(is.na(total_distance_daily))
+
+# let's add a missing indicator we can use to calculate missing data
+
+# finding players that have nethier GPS nor sRPE data
+players_no_gps = setdiff(d_player$player_id, unique(d_td_daily$player_id))
+players_no_srpe = setdiff(d_player$player_id, unique(d_srpe_dt$player_id))
+players_no_gps_nor_srpe = intersect(players_no_srpe, players_no_gps)
+
+# adding indicator for players who have no data
+d_load = d_load %>% mutate(missing_player = ifelse(player_id %in% players_no_gps_nor_srpe, 1, 0))
+
+# create indicator for missing values
+# this is because we will later on add dates that are missing per player
+# and we want to distinguish missing values where the player had answered something, but not the load
+# from days that are missing entirely
+d_load = d_load %>% mutate(missing_td = ifelse(is.na(total_distance_daily), 1, 0),
+                           missing_td_text = ifelse(is.na(total_distance_daily), "Missing Explicitly", "Not Missing"),
+                           missing_load = ifelse(is.na(load), 1, 0),
+                           missing_load_text = ifelse(is.na(load), "Missing Explicitly", "Not Missing"))
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+d_load %>% View()
 
 #--------------number of players
 # player table
