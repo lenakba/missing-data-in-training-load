@@ -12,6 +12,12 @@
 # required packages to run this script
 library(DBI) # for database extraction with SQL
 library(tidyverse) # for data wrangling
+library(rlang) # tidyverse function building tools
+
+#optional packages
+library(devEMF) # for saving emf files
+library(lmisc) # for bjsm colors and ggplot themes
+
 
 # Step 1: obtain GPS data and extract total distance------------------------------------
 
@@ -28,7 +34,7 @@ d_gps_full = dbGetQuery(db_stromsgodset,
                         paste0("SELECT *
                   FROM training_data_2019.training_data")) %>% as_tibble()
 
-d_td_full = d_gps_full %>% select(total_distance)
+d_td_full = d_gps_full %>% select(player_id, dt, datekey, session_id, total_distance, injury_id)
 remove(d_gps_full)
 
 # Step 2: Remove ostensibly erroneous GPS data at the second level (this becomes part of missing data)
@@ -64,9 +70,9 @@ d_td = d_td %>% mutate(total_distance = adjust_outliers(total_distance))
 
 #to calculate the number of values removed and changed from this process
 calc_n_change = function(x){
-  d_remove = d_gps_full %>% summarise(remove = sum(x > 30))
-  d_change = d_gps_full %>% summarise(change = sum(x > 15 & x <= 30))
-  d_remove = d_remove %>% mutate(change = d_change$change)
+  d_remove = d_td_full %>% summarise(remove = sum(x > 30))
+  d_change = d_td_full %>% summarise(change = sum(x > 15 & x <= 30))
+  d_remove = d_remove %>% mutate(change = d_change$change, n_denominator = nrow(d_td_full), prop_remove = remove/n_denominator, prop_change = change/n_denominator)
   d_remove
 }
 
@@ -75,10 +81,8 @@ d_n_cleaned = bind_rows(calc_n_change(d_td_full$total_distance)) %>% mutate(labe
 #----------------- Step 3: Remove ostensibly erroneous GPS data at the daily level
 
 
-
-
-
-
+remove(d_td_full)
+d_td
 
 
 
