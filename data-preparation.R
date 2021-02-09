@@ -3,9 +3,9 @@
 # Step 1: obtain GPS data and extract total distance
 # Step 2: Remove ostensibly erroneous GPS data at the second level (this becomes part of missing data)
 # Step 3: Remove ostensibly erroneous GPS data at the daily level
-# Step 4: Obtain RPE data, add implicit days where the players did not have any training (day after match, weekends etc.)
-# Step 5: and combine RPE and GPS data at the daily level so that we have both in the same dataset
-# Step 6 *bonus*: obtain injury data and combine it with this data, in case we get to do logistic regression bonus analyses
+# Step 4: Obtain RPE data
+# Step 5: Combine RPE and GPS data at the daily level so that we have both in the same dataset
+# Step 6: Add implicit days where the players did not have any training (day after match, weekends etc.)
 # Step 7: anonymize the ID so that the data used in simulations can later be uploaded as-is
 # Step 8: save the final dataset to be used in simulations
 
@@ -80,9 +80,160 @@ d_n_cleaned = bind_rows(calc_n_change(d_td_full$total_distance)) %>% mutate(labe
 
 #----------------- Step 3: Remove ostensibly erroneous GPS data at the daily level
 
+# We will first calculate the sum of minutes in acitivity per person per day
+d_duration = d_td %>% 
+  group_by(player_id, datekey) %>% 
+  mutate(sum_minutes = as.numeric(difftime(max(dt), min(dt), units = "mins"))) %>% 
+  ungroup() 
+
+# we will calculate the total distance per person per day
+# then validate the TD by dividing it by the sum of minutes in activity 
+vars = c("player_id", "datekey")
+d_td_daily = d_duration  %>% select(all_of(vars), total_distance, sum_minutes) %>%  
+  group_by(player_id, datekey) %>% 
+  mutate(total_distance_daily = sum(total_distance, na.rm = TRUE)) %>% 
+  distinct(player_id, datekey, .keep_all = TRUE) %>% 
+  # if the player has 0 sum minutes, they have 0 TD
+  mutate(total_distance_daily = ifelse(sum_minutes == 0, 0, total_distance_daily),
+         td_per_minute = total_distance_daily/sum_minutes)
+
+# looks pretty good:
+d_td_daily %>% arrange(desc(td_per_minute))
+
+# Step 4: Obtain RPE data
+# Step 5: Combine RPE and GPS data at the daily level so that we have both in the same dataset
+
+
+
+# Step 6: Add implicit days where the players did not have any training (day after match, weekends etc.)
+
+# Now we want to make sure that dates where the
+# players didn't participate in any activity are included
+# as these are implicitly sRPE and Total distance = 0.
+# unless any other information is given, 
+# we will assume that the 2 days after a match, 
+# given that the week has only 1 match, are free days with 0 TD for all players 
+
+# obtaining information about dates
+d_date_full = dbGetQuery(db_stromsgodset, 
+                         paste0("SELECT *
+                  FROM training_data_2019.date_dimension")) %>% as_tibble()
+
+
+# finding number of matches per week
+# add an index with number of matches for each of the weeks
+d_n_matches = d_date_full %>% group_by(week_nr) %>% summarise(n_matches = sum(match_indicator))
+d_date_full = d_date_full %>% left_join(d_n_matches, by = "week_nr")
+
+# Add categorical variable describing each day in relation to match days
+# According to Torstein Dalen-Lorentsen the sequence:
+# M
+# M+1
+# M+2
+# m-4
+# m-3
+# m-2
+# m-1
+# M
+
+# for weeks with 1 match
+d_match_weeks = d_date_full %>% filter(n_matches == 1) 
+d_match_weeks = d_match_weeks %>% mutate(mc_day = case_when(match_indicator ~ "M",
+                                                            lag(match_indicator) ~ "M+1", 
+                                                            lag(match_indicator, 2) ~ "M+2",
+                                                            lead(match_indicator) ~ "M-1",
+                                                            lead(match_indicator, 2) ~ "M-2",
+                                                            lead(match_indicator, 3) ~ "M-3",
+                                                            lead(match_indicator, 4) ~ "M-4")
+)
+
+# And for two matches per week or more:
+# M
+# m-2
+# m-1
+# M
+# M-3
+# m-2
+# m-1
+# M
+
+d_match_weeks_dbl = d_date_full %>% filter(n_matches >= 2) 
+d_match_weeks_dbl = d_match_weeks_dbl %>% mutate(mc_day = case_when(match_indicator ~ "M",
+                                                                    lead(match_indicator) ~ "M-1",
+                                                                    lead(match_indicator, 2) ~ "M-2",
+                                                                    lead(match_indicator, 3) ~ "M-3",
+                                                                    lead(match_indicator, 4) ~ "M-4",
+                                                                    lead(match_indicator, 5) ~ "M-5")
+)
+
+# weeks without a match
+d_free_weeks = d_date_full %>% filter(n_matches == 0) %>% mutate(mc_day = "Non-match week")
+
+# combine data
+d_weeks_full = bind_rows(d_free_weeks, d_match_weeks, d_match_weeks_dbl) %>% arrange(training_date)
+
+
+# We can now combine our weeks with the GPS data
+# and we will know 
+
+# adding match week day data
+d_gps_match_weeks = d_gps_match_weeks %>% full_join(d_match_weeks, by = "datekey") 
+
+d_gps_all = d_gps_match_weeks %>% left_join(d_player, by = c("player_id" = "id"))
+
+remove(d_gps_match_weeks)
+remove(d_gps_full)
+remove(d_gps)
 
 remove(d_td_full)
 d_td
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#--------------number of players
+# player table
+d_player_full = dbGetQuery(db_stromsgodset, 
+                           paste0("SELECT *
+                  FROM training_data_2019.player")) %>% as_tibble()
+
+# number of players
+nrow(d_player_id)
+
+# number of players with gps data
+n_distinct(d_gps$player_id)
+
+#---------------------------------------------Missing data
+
+n_measures_expected = nrow(d_gps)*365
+
+match_week_dates = d_match_weeks %>% distinct(datekey)
+d_gps_match_weeks = d_gps %>% filter(datekey %in% match_week_dates$datekey)
+
+# number and percentage missing values
+find_missing = function(x){
+  x = enquo(x)
+  d_gps %>% summarise(n_missing = sum(is.na(!!x)), n_nonmissing = sum(!is.na(!!x)), prop = n_missing/n_nonmissing)
+}
+
+find_missing(total_distance)
+
+# number of missing match week days
+gps_days = d_gps_match_weeks %>% distinct(datekey)
+date_days = d_match_weeks %>% distinct(datekey)
+nrow(gps_days)/nrow(date_days)
 
 
 
