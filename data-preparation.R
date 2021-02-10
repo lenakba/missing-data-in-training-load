@@ -278,3 +278,10 @@ d_load_anon = d_load_full %>% mutate(p_id = ano_func(player_id)) %>% select(-pla
 # select wanted columns in the order that we want them
 d_load_final = d_load_anon %>% select(p_id, training_date, load, total_distance_daily, missing_load, missing_load_text, missing_td, missing_td_text, missing_player, missing_player_text)
 
+# where to place the saved data
+folder_export = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
+
+# write .csv
+# write_delim is preferable, but write_excel_csv is required for excel to understand
+# that the file encoding is UTF-8
+write_excel_csv(d_load_final, paste0(folder_export, "norwegian_premier_league_football_anon.csv"), delim = ";", na = "")
