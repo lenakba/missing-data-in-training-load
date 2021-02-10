@@ -226,7 +226,8 @@ players_no_srpe = setdiff(d_player$player_id, unique(d_srpe_dt$player_id))
 players_no_gps_nor_srpe = intersect(players_no_srpe, players_no_gps)
 
 # adding indicator for players who have no data
-d_load = d_load %>% mutate(missing_player = ifelse(player_id %in% players_no_gps_nor_srpe, 1, 0))
+d_load = d_load %>% mutate(missing_player = ifelse(player_id %in% players_no_gps_nor_srpe, 1, 0),
+                           missing_player_text = ifelse(missing_player == 1, "Player missing all TL", "Player not missing all TL"))
 
 # create indicator for missing values
 # this is because we will later on add dates that are missing per player
@@ -261,10 +262,19 @@ d_load_full = d_load_full %>% mutate(missing_td = ifelse(is.na(missing_td), 2, m
 d_load_full %>% count(missing_td, missing_td_text)
 d_load_full %>% count(missing_load, missing_load_text)
 
-#---------------------------------------- STep 8 Anonymize the ID so that the data used in simulations can later be uploaded as-is
+# filling missing player variables
+d_load_full = d_load_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, .direction = "downup") %>% ungroup()
 
-set.seed(1234)
+#---------------------------------------- Step 8 Anonymize the ID so that the data used in simulations can later be uploaded as-is
+
+set.seed(1234) # in case we need to run this script and create the data again
 # use the anonymization function to easily anonymize the data
 # the new ID has nothing to do with the old one
 ano_func = make_anonymize_func(d_load_full$player_id)
-d_load_full = d_load_full %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) # remove old ID
+d_load_anon = d_load_full %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) # remove old ID
+
+#---------------------------------------- Step 9 save the final dataset to be used in simulations
+
+# select wanted columns in the order that we want them
+d_load_final = d_load_anon %>% select(p_id, training_date, load, total_distance_daily, missing_load, missing_load_text, missing_td, missing_td_text, missing_player, missing_player_text)
+
