@@ -18,6 +18,7 @@ library(rlang) # tidyverse function building tools
 #optional packages
 library(devEMF) # for saving emf files
 library(lmisc) # for bjsm colors and ggplot themes
+library(ostrc) # for anonymization function
 
 
 #-------------------------------------- Step 1: obtain GPS data and extract total distance
@@ -259,3 +260,11 @@ d_load_full = d_load_full %>% mutate(missing_td = ifelse(is.na(missing_td), 2, m
 # missing can now be calculated
 d_load_full %>% count(missing_td, missing_td_text)
 d_load_full %>% count(missing_load, missing_load_text)
+
+#---------------------------------------- STep 8 Anonymize the ID so that the data used in simulations can later be uploaded as-is
+
+set.seed(1234)
+# use the anonymization function to easily anonymize the data
+# the new ID has nothing to do with the old one
+ano_func = make_anonymize_func(d_load_full$player_id)
+d_load_full = d_load_full %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) # remove old ID
