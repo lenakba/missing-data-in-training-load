@@ -286,10 +286,6 @@ d_load_full = d_load_full %>% mutate(missing_td = ifelse(is.na(missing_td), 2, m
                            missing_load = ifelse(is.na(missing_load), 2, missing_load),
                            missing_load_text = ifelse(is.na(missing_load_text), "Missing Implicitly", missing_load_text))
 
-# missing can now be calculated
-d_load_full %>% count(missing_td, missing_td_text)
-d_load_full %>% count(missing_load, missing_load_text)
-
 # filling missing player variables
 d_load_full = d_load_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, .direction = "downup") %>% ungroup()
 
