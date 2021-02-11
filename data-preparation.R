@@ -109,15 +109,15 @@ d_srpe_full = dbGetQuery(db_stromsgodset,
 d_srpe_selected = d_srpe_full %>% select(player_id, training_date = planned_date, activity, duration, difficulty, load)
 
 # test that no one has 0 duration or 0 diffulty yet have more than 0 load or difficulty
-d_srpe_selected %>% filter(duration == "00:00:00")
-d_srpe_selected %>% filter(difficulty == 0 & activity == "Training") 
+nrow(d_srpe_selected %>% filter(duration == "00:00:00" & activity == "Training" & difficulty > 0))
+nrow(d_srpe_selected %>% filter(duration != "00:00:00" & activity == "Training" & difficulty == 0)) 
 
 # some players have reported the activity "training" with a duration higher than 0, 
 # yet difficulty is set to 0, which means no training was performed
 # we will assume these had a difficulty of 1
 # in addition, if activity = training, but duration = 0, we assume difficulty and load to be 0 too
 # we use the chron package to create duration into a numeric variable
-d_srpe_selected = d_srpe_selected %>% 
+d_srpe_fixed = d_srpe_selected %>% 
                   mutate(times_tz = chron::times(duration), 
                          minutes = chron::minutes(times_tz), 
                          hours = chron::hours(times_tz),
@@ -130,7 +130,7 @@ d_srpe_selected = d_srpe_selected %>%
   select(player_id, training_date, difficulty, duration = duration_min, load)
 
 # we sum multiple sessions on the same day per individual for a daily sRPE measure
-d_srpe_daily = d_srpe_selected %>% group_by(player_id, training_date) %>% summarise(load = sum(load, na.rm = TRUE))
+d_srpe_daily = d_srpe_fixed %>% group_by(player_id, training_date) %>% summarise(load = sum(load, na.rm = TRUE))
 
 # in case we need them, we choose a random difficulty and duration row per player, per date and add it to the daily srpe data
 # daily duration and difficulty (ddd)
