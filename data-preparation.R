@@ -99,8 +99,13 @@ d_td_daily = d_duration  %>% select(all_of(vars), total_distance, sum_minutes) %
   mutate(total_distance_daily = ifelse(sum_minutes == 0, 0, total_distance_daily),
          total_distance_minute = total_distance_daily/sum_minutes) %>% ungroup() %>% select(-total_distance)
 
-# looks pretty good:
-d_td_daily %>% arrange(desc(total_distance_minute))
+# it doesnt look like anyone has overly large TD values:
+nrow(d_td_daily %>% filter(total_distance_daily < 100 & total_distance_daily != 0))
+
+# but some have overly small
+# if total distance is less than 100m a day
+# we assume it is an error and set it to missing
+d_td_daily = d_td_daily %>% mutate(total_distance_daily = ifelse(total_distance_daily < 100, NA, total_distance_daily))
 
 #---------------------------------------------------------------------Step 4: Obtain RPE data
 d_srpe_full = dbGetQuery(db_stromsgodset, 
