@@ -209,7 +209,7 @@ d_free_weeks = d_date_full %>% filter(n_matches == 0) %>% mutate(mc_day = "Non-m
 d_weeks_full = bind_rows(d_free_weeks, d_match_weeks, d_match_weeks_dbl) %>% arrange(training_date)
 
 # this is now the ready date dataset which we will combine later to get days without training
-d_weeks = d_weeks_full %>% select(datekey, training_date, week_nr, match_indicator, n_matches, mc_day)
+d_weeks = d_weeks_full %>% select(datekey, training_date, day_of_week, week_nr, match_indicator, n_matches, mc_day)
 
 #--------------------------------------------Step 6: Combine RPE and GPS data at the daily level so that we have both in the same dataset
 
@@ -229,7 +229,7 @@ d_player_gps_dt = d_player_gps %>% left_join(d_weeks, by = "datekey")
 d_srpe_dt = d_srpe %>% left_join(d_weeks, by = "training_date")
 
 # add sRPE data with fulljoin so we keep players without sRPE values
-d_load = d_player_gps_dt %>% full_join(d_srpe_dt, by = c("player_id", "training_date", "datekey", "week_nr", "match_indicator", "n_matches", "mc_day"))
+d_load = d_player_gps_dt %>% full_join(d_srpe_dt, by = c("player_id", "training_date", "day_of_week", "datekey", "week_nr", "match_indicator", "n_matches", "mc_day"))
 
 # days that are M+1 or M+2 are sRPE = 0 and total_distance = 0
 d_load  = d_load %>% mutate(load = ifelse(is.na(load) & (mc_day == "M+2" | mc_day == "M+1"), 0, load),
@@ -304,7 +304,7 @@ d_load_anon = d_load_full %>% mutate(p_id = ano_func(player_id)) %>% select(-pla
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
 
 # select wanted columns in the order that we want them
-d_load_final = d_load_anon %>% select(p_id, training_date, load, total_distance_daily, missing_load, missing_load_text, missing_td, missing_td_text, missing_player, missing_player_text)
+d_load_final = d_load_anon %>% select(p_id, training_date, day_of_week, load, duration, difficulty, total_distance_daily, missing_load, missing_load_text, missing_td, missing_td_text, missing_player, missing_player_text)
 
 # where to place the saved data
 folder_export = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
