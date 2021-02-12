@@ -10,14 +10,18 @@ library(tidyverse) # for datawrangling
 library(DBI) # for database extraction with SQL
 library(chron) # for calculating duration
 
+# Connecting to database
+db = 'stromsgodset'  #provide the name of your db
+db_port = '5432'  # or any other port specified by the DBA
+db_user = "postgres" 
+db_password = "postgresql"
+db_stromsgodset = dbConnect(RPostgreSQL::PostgreSQL(), dbname = db, port=db_port, user=db_user, password=db_password) 
+
+# get data from database
 d_srpe_full = dbGetQuery(db_stromsgodset, 
                          paste0("SELECT *
                   FROM training_data_2019.temp_training_log")) %>% as_tibble() 
 d_srpe_selected = d_srpe_full %>% select(player_id, training_date = planned_date, activity, duration, difficulty, load)
-
-# test that no one has 0 duration or 0 diffulty yet have more than 0 load or difficulty
-nrow(d_srpe_selected %>% filter(duration == "00:00:00" & activity == "Training" & difficulty > 0))
-nrow(d_srpe_selected %>% filter(duration != "00:00:00" & activity == "Training" & difficulty == 0)) 
 
 # some players have reported the activity "training" with a duration higher than 0, 
 # yet difficulty is set to 0, which means no training was performed
