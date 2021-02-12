@@ -36,7 +36,7 @@ add_mcar = function(d, missing_prop){
   d
 }
 
-# use map2 to add missing to each dataset for each element in vector missing_prop_v
+# use map2 to map each dataset with each element in vector missing_prop_v
 l_td = l_td %>% map2(.x =., .y = missing_prop_v, ~add_mcar(.x, .y))
 d_srpe = d_srpe %>% map2(.x =., .y = missing_prop_v, ~add_mcar(.x, .y))
 
