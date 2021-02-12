@@ -18,6 +18,10 @@ d_srpe_full = d_full %>% select(p_id, training_date, day_of_week, load)
 d_td = d_td_full %>% filter(!is.na(load)) %>% rownames_to_column()
 d_srpe = d_srpe_full %>% filter(!is.na(load)) %>% rownames_to_column()
 
+# vector of chosen missing proportions
+missing_prop_v = c(0.05, 0.1, 0.2, 0.4, 0.6, 0.8)
+
+# function for adding missing completely at random with user's choice of proportion missing
 set.seed(123)
 add_mcar = function(d, missing_prop){
   n_values = nrow(d)
@@ -27,11 +31,4 @@ add_mcar = function(d, missing_prop){
   d
 }
 
-d_td_005 = add_mcar(d_td, 0.05)
-d_td_01 = add_mcar(d_td, 0.1)
-d_td_08 = add_mcar(d_td, 0.8)
-
-d_td_005 %>% summarise(missing = sum(is.na(load)), n = n(), prop = missing/n)
-d_td_01 %>% summarise(missing = sum(is.na(load)), n = n(), prop = missing/n)
-d_td_08 %>% summarise(missing = sum(is.na(load)), n = n(), prop = missing/n)
 
