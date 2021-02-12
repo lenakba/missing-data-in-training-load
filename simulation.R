@@ -22,7 +22,8 @@ set.seed(123)
 add_mcar = function(d, missing_prop){
   n_values = nrow(d)
   random_spots = sample(1:n_values, round(missing_prop*n_values))
-  d = d %>% mutate(load = ifelse(rowname %in% random_spots, NA, load))
+  d = d %>% mutate(load = ifelse(rowname %in% random_spots, NA, load),
+                   missing_type = "MCAR")
   d
 }
 
