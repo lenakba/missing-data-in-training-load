@@ -41,21 +41,6 @@ d_srpe_fixed = d_srpe_selected %>%
          load = duration_min*difficulty) %>% # we need to recalculate srpe thanks to that
   select(player_id, training_date, rpe = difficulty, duration = duration_min, srpe = load)
 
-#--------------------------------------------------adding missing
-
-# we fetch our MCAR function from the main simulation
-set.seed(123)
-add_mcar = function(d, missing_prop){
-  n_values = nrow(d)
-  random_spots = sample(1:n_values, round(missing_prop*n_values))
-  d = d %>% mutate(load = ifelse(rowname %in% random_spots, NA, load),
-                   missing_type = "MCAR",
-                   missing_amount = missing_prop)
-  d
-}
-
-
-
 #-------------------------------------------------imputation methods in Van Buuren
 
 # The easiest way to deal with the problem is to leave any derived data outside the imputation process. 
@@ -100,6 +85,25 @@ pred = make.predictorMatrix(data)
 pred[c("wgt", "hgt"), "whr"] = 0
 imp.pas = mice(data, meth = meth, pred = pred, print = FALSE, seed = 32093)
 
+# Bartlett et al. (2015) proposed a novel rejection sampling method 
+# that creates imputations that are congenial in the sense of Meng (1994) 
+# with the substantive (complete-data) model.
+# The method has been implemented in the smcfcs package. 
+# The imputation method requires a specification of the complete-data model, 
+# as arguments smtype and smformula. 
+# An example of how to generate imputations, fit models, and pool the results is:
+library(smcfcs)
+data = pop
+data[sample(nrow(data), size = 100), "wgt"] = NA
+data[sample(nrow(data), size = 100), "hgt"] = NA
+data$whr = 100 * data$wgt / data$hgt
+meth = c("", "norm", "norm", "", "", "norm")
+imps = smcfcs(originaldata = data, meth = meth, smtype = "lm",
+               smformula = "hc ~ age + hgt + wgt + whr")
+fit = lapply(imps$impDatasets, lm,
+              formula = hc ~ age + hgt + wgt + whr)
+summary(pool(fit))
+
 #--------------------------------------------------------------Testing imputation
 
 # As the population data, take the 681 complete records of variables age, hgt, wgt, hc and reg, 
@@ -119,6 +123,18 @@ broom::tidy(lm(hc ~ age + hgt + wgt + whr, data = pop))
 # and 25% MCAR missing in wgt using four imputation strategies (nsim = 200).
 
 
+#
+
+# we fetch our MCAR function from the main simulation
+set.seed(123)
+add_mcar = function(d, missing_prop){
+  n_values = nrow(d)
+  random_spots = sample(1:n_values, round(missing_prop*n_values))
+  d = d %>% mutate(load = ifelse(rowname %in% random_spots, NA, load),
+                   missing_type = "MCAR",
+                   missing_amount = missing_prop)
+  d
+}
 
 
 
