@@ -21,14 +21,24 @@ d_srpe = d_srpe_full %>% filter(!is.na(load)) %>% rownames_to_column()
 # vector of chosen missing proportions
 missing_prop_v = c(0.05, 0.1, 0.2, 0.4, 0.6, 0.8)
 
+# list with multiple datasets we add missing to
+l_td = list(d_td, d_td, d_td, d_td, d_td, d_td)
+l_srpe = list(d_srpe, d_srpe, d_srpe, d_srpe, d_srpe, d_srpe)
+
 # function for adding missing completely at random with user's choice of proportion missing
 set.seed(123)
 add_mcar = function(d, missing_prop){
   n_values = nrow(d)
   random_spots = sample(1:n_values, round(missing_prop*n_values))
   d = d %>% mutate(load = ifelse(rowname %in% random_spots, NA, load),
-                   missing_type = "MCAR")
+                   missing_type = "MCAR",
+                   missing_amount = missing_prop)
   d
 }
+
+# use map2 to add missing to each dataset for each element in vector missing_prop_v
+l_td = l_td %>% map2(.x =., .y = missing_prop_v, ~add_mcar(.x, .y))
+d_srpe = d_srpe %>% map2(.x =., .y = missing_prop_v, ~add_mcar(.x, .y))
+
 
 
