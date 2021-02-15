@@ -468,7 +468,11 @@ perf_estimates_simvar = d_fit_estimates %>%
             mcse_coverage = mcse_coverage(CI_low, CI_high, 1, n(), runs)) %>% ungroup()
 
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
-perf_estimates_targetcoef = d_fit_estimates_srpe %>% filter(method != "No imputation") %>% 
+# using target param as ideal
+target_est = d_fit_estimates %>% filter(term == "srpe", method == "No imputation") %>% distinct(estimate) %>% pull()
+d_fit_estimates_srpe = d_fit_estimates %>% mutate(target_est = target_est) %>% filter(term == "srpe")
+perf_estimates_targetcoef = d_fit_estimates_srpe %>% 
+  filter(method != "No imputation") %>% 
   group_by(method) %>% 
   summarise(rb = raw_bias(estimate, target_est),
             pb = percent_bias(estimate, target_est),
@@ -477,38 +481,6 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>% filter(method != "No imputa
             average_width = average_width(CI_low, CI_high),
             mcse_rmse = mcse_rmse(estimate, target_est, runs),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, runs))
-
-
-# using target param as ideal
-target_est = d_fit_estimates %>% filter(term == "srpe", method == "No imputation") %>% distinct(estimate) %>% pull()
-d_fit_estimates_srpe = d_fit_estimates %>% mutate(target_est = target_est) %>% filter(term == "srpe")
-
-d_fit_estimates_srpe %>% filter(method != "No imputation") %>% 
-  group_by(method) %>% 
-  mutate(diff = estimate - target_est,
-         se = diff^2,
-         coverage = ifelse(CI_low < target_est & target_est < CI_high, 1, 0),
-         width = CI_high-CI_low) %>% 
-  summarise(RB = mean(diff),
-            PB = 100*abs(mean(diff/diff)),
-            RMSE = sqrt(mean(diff)^2),
-            CR = 100*(sum(coverage == 1, na.rm = TRUE)/n()),
-            AW = mean(width))
-            
-
-  
-
-
-## TODO Create function for estimating parameters
-
-# true = 1
-# RB = rowMeans(res1[,, "estimate"]) - true
-# PB = 100 * abs((rowMeans(res[,, "estimate"]) - true)/ true)
-# CR = rowMeans(res[,, "2.5 %"] < true & true < res[,, "97.5 %"])
-# AW = rowMeans(res[,, "97.5 %"] - res[,, "2.5 %"])
-# RMSE = sqrt(rowMeans((res[,, "estimate"] - true)^2))
-# 
-# data.frame(RB, PB, CR, AW, RMSE)
 
 ## TODO evaluate imputation points by themselves
 # l_imputed1 = mice::complete(imp.itt, "all") 
