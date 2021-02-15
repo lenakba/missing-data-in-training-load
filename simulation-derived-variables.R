@@ -5,6 +5,11 @@
 # may be relevant: https://journals.sagepub.com/doi/full/10.1177/0962280214521348
 # definitely relevant: https://stefvanbuuren.name/fimd/sec-knowledge.html 
 
+# so we don't have to deal with scientific notations
+# and strings aren't automaticcaly read as factors
+options(scipen = 17, 
+        stringsAsFactors = FALSE)
+
 # loading packages
 library(tidyverse) # for datawrangling
 library(DBI) # for database extraction with SQL
