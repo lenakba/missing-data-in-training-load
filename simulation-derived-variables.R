@@ -454,8 +454,6 @@ average_width = function(ci_low, ci_high){
    mean(ci_high-ci_low)
 }
 
-
-
 # between simulation variation estimates
 perf_estimates_simvar = d_fit_estimates %>% 
   group_by(method) %>% 
