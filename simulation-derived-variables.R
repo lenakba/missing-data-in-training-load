@@ -160,7 +160,6 @@ inj_probability = function(srpe, age){
 d_sim_inj = d_srpe %>% 
             mutate(inj_prop = inj_probability(srpe, age), 
                    injury = rbinom(length(inj_prop), 1, prob = inj_prop))
-fit_target = glm(injury ~ srpe + age, family = "binomial", data = d_sim_inj)
 
 # now we make out example data that we'll remove data from
 d_exdata = d_sim_inj %>% rownames_to_column() %>% dplyr::select(-srpe)
@@ -209,6 +208,7 @@ d_missing_srpe_only = d_missing_srpe %>% dplyr::select(-rpe, -duration)
 imp.id = mice(d_missing_srpe_only, seed = 1234, print = FALSE) 
 
 # fit our models
+fit_target = glm(injury ~ srpe + age, family = "binomial", data = d_sim_inj)
 fit1 = with(imp.itt, glm(injury ~ srpe + age, family = binomial))
 fit2 = with(imp.jav, glm(injury ~ srpe + age, family = binomial))
 fit3 = with(imp.pas, glm(injury ~ srpe + age, family = binomial))
