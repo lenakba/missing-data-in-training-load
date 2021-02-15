@@ -249,7 +249,7 @@ sim_imp_derivedvar = function(d_missing, run = 1){
     imp1 = mice(d_missing, print = FALSE, seed = 1234)
     long1 = mice::complete(imp1, "long", include = TRUE)
     long1$srpe = with(long1, rpe*duration)
-    imp.itt = as.mids(long1)
+    imp.itt = as.mids(long1, print = FALSE)
 
     # Method 2 Transform, then impute
     d_missing_srpe = d_missing %>% mutate(srpe = rpe * duration)
@@ -294,27 +294,20 @@ sim_imp_derivedvar = function(d_missing, run = 1){
 d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
 sim_imp_derivedvar(d_missing)
 
-runs = 10
-for(run in 1:runs) {
-  d_missing = add_mcar(d, 0.25) %>% dplyr::select(-inj_prop)
-  res[1, run, ] <- test.impute(data, method = "norm.predict",
-                               m = 2)
-  res[2, run, ] <- test.impute(data, method = "norm.nob")
-}
-res
+folder_da = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\derived_var_analyis\\"
 
-
+# the warnings are caused by collinearity between the variables
+# which is expected
 options(warn=-1)
-n_sim = 1900
 set.seed = 1234
-rel = "j"
-for(i in 4:n_sim){
-  # capture seeds
-  cat(capture.output(.Random.seed), file=paste0("seeds\\",i,"_random_seed.txt"), sep="\n")
-  d_u = simulate_and_calc(load_type = "acwr", injury = injury_j, coefs = coefs_j_acwr, rep = i)
-  saveRDS(d_u, file=paste0("",rel,"_coverage\\",i,"_d_",rel,".rds"))
+runs = 10
+for(i in 1:runs) {
+  d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
+  d_sim = sim_imp_derivedvar(d_missing)
+  saveRDS(d_sim, file=paste0(folder_da,i,"_d_derived_var_fits.rds"))
 }
 options(warn=0)
+
 
 
 ## TODO Create function for estimating parameters
