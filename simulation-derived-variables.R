@@ -200,7 +200,6 @@ pred[c("duration", "srpe"), c("duration", "srpe")] = 0
 meth_pmm = make.method(d_missing_srpe)
 imp.jav = mice(d_missing_srpe, meth = meth_pmm, pred = pred, seed = 1234, print = TRUE)
 
-
 # Method 3 Passive Imputation
 meth = make.method(d_missing_srpe)
 meth["srpe"] = "~I(rpe*duration)" # we add the calculation for sRPE among the methods
@@ -221,17 +220,101 @@ fit4 = with(imp.id, glm(injury ~ srpe + age, family = binomial))
 
 # function for obtaining parameters from any model fit
 # specify method for a column with the model-type
-get_params = function(fit, method){
-  d_params = parameters::parameters(fit) %>% tibble()
-  d_params = d_params %>% mutate(method = method)
+# and whether its a fit on a list of imputed data or not
+get_params = function(fit, method, imp = TRUE){
+  if(imp){
+  d_params = summary(mice::pool(fit), "all", conf.int = TRUE) %>% 
+          dplyr::select(estimate, CI_low = "2.5 %", CI_high = "97.5 %") 
+  } else {
+  d_params = parameters::parameters(fit) %>% tibble() %>% 
+          dplyr::select(estimate = Coefficient, CI_low, CI_high)
+  }
+  d_params = d_params %>% mutate(method = method) 
   d_params
 }
 
-tab_target = get_params(fit_target, "Target") %>% dplyr::select(estimate = Coefficient, CI_low, CI_high) %>% mutate(method = "No imputation")
-tab1 = summary(mice::pool(fit1), "all", conf.int = TRUE) %>% dplyr::select(estimate, CI_low = "2.5 %", CI_high = "97.5 %") %>% mutate(method = "ITT")
-tab2 = summary(mice::pool(fit2), "all", conf.int = TRUE) %>% dplyr::select(estimate, CI_low = "2.5 %", CI_high = "97.5 %") %>% mutate(method = "jav")
-tab3 = summary(mice::pool(fit3), "all", conf.int = TRUE) %>% dplyr::select(estimate, CI_low = "2.5 %", CI_high = "97.5 %") %>% mutate(method = "pas")
-tab4 = summary(mice::pool(fit4), "all", conf.int = TRUE) %>% dplyr::select(estimate, CI_low = "2.5 %", CI_high = "97.5 %") %>% mutate(method = "id")
+tab_target = get_params(fit_target, "No imputation", imp = FALSE)  
+tab1 = get_params(fit1, "Impute then transform")  
+tab2 = get_params(fit2, "Transform then impute")  
+tab3 = get_params(fit3, "Passive Imputation")  
+tab4 = get_params(fit4, "Impute transformed alone")  
+d_fits = bind_rows(tab_target, tab1, tab2, tab3, tab4)
+
+# create function based on all this
+
+sim_imp_derivedvar = function(d_missing, run = 1){
+    target_srpe = d_missing$srpe
+
+    # Method 1 Impute, then transform
+    imp1 = mice(d_missing, print = FALSE, seed = 1234)
+    long1 = mice::complete(imp1, "long", include = TRUE)
+    long1$srpe = with(long1, rpe*duration)
+    imp.itt = as.mids(long1)
+
+    # Method 2 Transform, then impute
+    d_missing_srpe = d_missing %>% mutate(srpe = rpe * duration)
+    # We may prevent automatic removal by setting the relevant entries 
+    # in the predictorMatrix to zero.
+    # This is a little faster (5-10%) and cleans out the warning.
+    pred = make.predictorMatrix(d_missing_srpe)
+    pred[c("rpe", "srpe"), c("rpe", "srpe")] = 0
+    pred[c("duration", "srpe"), c("duration", "srpe")] = 0
+    meth_pmm = make.method(d_missing_srpe)
+    imp.jav = mice(d_missing_srpe, meth = meth_pmm, pred = pred, seed = 1234, print = FALSE)
+
+    # Method 3 Passive Imputation
+    meth = make.method(d_missing_srpe)
+    meth["srpe"] = "~I(rpe*duration)" # we add the calculation for sRPE among the methods
+    pred2 = make.predictorMatrix(d_missing_srpe)
+    pred2[c("rpe", "duration"), "srpe"] = 0
+    imp.pas = mice(d_missing_srpe, meth = meth, pred = pred2, print = FALSE, seed = 1234)
+
+    # Method 4 Impute derived without informants
+    d_missing_srpe_only = d_missing_srpe %>% dplyr::select(-rpe, -duration)
+    imp.id = mice(d_missing_srpe_only, seed = 1234, print = FALSE) 
+
+    # fit our models
+    fit_target = glm(injury ~ srpe + age, family = "binomial", data = d_sim_inj)
+    fit1 = with(imp.itt, glm(injury ~ srpe + age, family = binomial))
+    fit2 = with(imp.jav, glm(injury ~ srpe + age, family = binomial))
+    fit3 = with(imp.pas, glm(injury ~ srpe + age, family = binomial))
+    fit4 = with(imp.id, glm(injury ~ srpe + age, family = binomial))
+
+    tab_target = get_params(fit_target, "No imputation", imp = FALSE)  
+    tab1 = get_params(fit1, "Impute then transform")  
+    tab2 = get_params(fit2, "Transform then impute")  
+    tab3 = get_params(fit3, "Passive Imputation")  
+    tab4 = get_params(fit4, "Impute transformed alone")  
+
+    d_fits = bind_rows(tab_target, tab1, tab2, tab3, tab4)
+    d_fits = d_fits %>% mutate(rep = run)
+    d_fits
+}
+
+d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
+sim_imp_derivedvar(d_missing)
+
+runs = 10
+for(run in 1:runs) {
+  d_missing = add_mcar(d, 0.25) %>% dplyr::select(-inj_prop)
+  res[1, run, ] <- test.impute(data, method = "norm.predict",
+                               m = 2)
+  res[2, run, ] <- test.impute(data, method = "norm.nob")
+}
+res
+
+
+options(warn=-1)
+n_sim = 1900
+set.seed = 1234
+rel = "j"
+for(i in 4:n_sim){
+  # capture seeds
+  cat(capture.output(.Random.seed), file=paste0("seeds\\",i,"_random_seed.txt"), sep="\n")
+  d_u = simulate_and_calc(load_type = "acwr", injury = injury_j, coefs = coefs_j_acwr, rep = i)
+  saveRDS(d_u, file=paste0("",rel,"_coverage\\",i,"_d_",rel,".rds"))
+}
+options(warn=0)
 
 
 ## TODO Create function for estimating parameters
@@ -279,6 +362,8 @@ tab4 = summary(mice::pool(fit4), "all", conf.int = TRUE) %>% dplyr::select(estim
 # densityplot_jav = densityplot(x=imp.jav, data = ~srpe)
 # densityplot_pas = densityplot(x=imp.pas, data = ~srpe)
 # densityplot_id = densityplot(x=imp.id, data = ~srpe)
+
+# xyplot(imp.itt, injury ~ srpe)
 
 #-------------------------------------------------imputation methods in Van Buuren (for reference)
 
