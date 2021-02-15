@@ -139,7 +139,9 @@ d_srpe_dayinfo  = d_srpe_dayinfo %>% mutate(rpe = ifelse(is.na(rpe) & (mc_day ==
 # fill the baseline variables we know the answer to
 d_srpe = d_srpe_dayinfo %>% arrange(player_id, training_date) %>% 
          group_by(player_id) %>% 
-         fill(position, age, height) %>% ungroup() %>% filter(!is.na(player_id))
+         fill(position, age, height) %>% 
+         ungroup() %>% 
+         filter(!is.na(player_id))
 
 
 #---------------------------Testing Imputation: creating fake injuries and see which method has the least bias etc
@@ -161,17 +163,10 @@ inj_probability = function(srpe, age){
   y
 }
 
-# we create fake injuries, and the ideal logistic regression model
-d_sim_inj = d_srpe %>% 
-            mutate(inj_prop = inj_probability(srpe, age), 
-                   injury = rbinom(length(inj_prop), 1, prob = inj_prop))
-
-# now we make out example data that we'll remove data from
-d_exdata = d_sim_inj %>% rownames_to_column() %>% dplyr::select(-srpe)
-target_srpe = d_sim_inj$srpe
+#-------------------------------1 permutation
 
 # we fetch our MCAR function from the main simulation
-set.seed(123)
+set.seed(1234)
 add_mcar = function(d, missing_prop){
   n_values = nrow(d)
   random_spots_rpe = sample(1:n_values, round(missing_prop*n_values))
@@ -181,42 +176,42 @@ add_mcar = function(d, missing_prop){
   d
 }
 
-d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
-
-# Method 1 Impute, then transform
-imp1 = mice(d_missing, print = FALSE, seed = 1234)
-long1 = mice::complete(imp1, "long", include = TRUE)
-long1$srpe = with(long1, rpe*duration)
-imp.itt = as.mids(long1)
-
-# Method 2 Transform, then impute
-d_missing_srpe = d_missing %>% mutate(srpe = rpe * duration)
-# We may prevent automatic removal by setting the relevant entries 
-# in the predictorMatrix to zero.
-# This is a little faster (5-10%) and cleans out the warning.
-pred = make.predictorMatrix(d_missing_srpe)
-pred[c("rpe", "srpe"), c("rpe", "srpe")] = 0
-pred[c("duration", "srpe"), c("duration", "srpe")] = 0
-meth_pmm = make.method(d_missing_srpe)
-imp.jav = mice(d_missing_srpe, meth = meth_pmm, pred = pred, seed = 1234, print = TRUE)
-
-# Method 3 Passive Imputation
-meth = make.method(d_missing_srpe)
-meth["srpe"] = "~I(rpe*duration)" # we add the calculation for sRPE among the methods
-pred2 = make.predictorMatrix(d_missing_srpe)
-pred2[c("rpe", "duration"), "srpe"] = 0
-imp.pas = mice(d_missing_srpe, meth = meth, pred = pred2, print = FALSE, seed = 1234)
-
-# Method 4 Impute derived without informants
-d_missing_srpe_only = d_missing_srpe %>% dplyr::select(-rpe, -duration)
-imp.id = mice(d_missing_srpe_only, seed = 1234, print = FALSE) 
-
-# fit our models
-fit_target = glm(injury ~ srpe + age, family = "binomial", data = d_sim_inj)
-fit1 = with(imp.itt, glm(injury ~ srpe + age, family = binomial))
-fit2 = with(imp.jav, glm(injury ~ srpe + age, family = binomial))
-fit3 = with(imp.pas, glm(injury ~ srpe + age, family = binomial))
-fit4 = with(imp.id, glm(injury ~ srpe + age, family = binomial))
+# d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
+# 
+# # Method 1 Impute, then transform
+# imp1 = mice(d_missing, print = FALSE, seed = 1234)
+# long1 = mice::complete(imp1, "long", include = TRUE)
+# long1$srpe = with(long1, rpe*duration)
+# imp.itt = as.mids(long1)
+# 
+# # Method 2 Transform, then impute
+# d_missing_srpe = d_missing %>% mutate(srpe = rpe * duration)
+# # We may prevent automatic removal by setting the relevant entries 
+# # in the predictorMatrix to zero.
+# # This is a little faster (5-10%) and cleans out the warning.
+# pred = make.predictorMatrix(d_missing_srpe)
+# pred[c("rpe", "srpe"), c("rpe", "srpe")] = 0
+# pred[c("duration", "srpe"), c("duration", "srpe")] = 0
+# meth_pmm = make.method(d_missing_srpe)
+# imp.jav = mice(d_missing_srpe, meth = meth_pmm, pred = pred, seed = 1234, print = TRUE)
+# 
+# # Method 3 Passive Imputation
+# meth = make.method(d_missing_srpe)
+# meth["srpe"] = "~I(rpe*duration)" # we add the calculation for sRPE among the methods
+# pred2 = make.predictorMatrix(d_missing_srpe)
+# pred2[c("rpe", "duration"), "srpe"] = 0
+# imp.pas = mice(d_missing_srpe, meth = meth, pred = pred2, print = FALSE, seed = 1234)
+# 
+# # Method 4 Impute derived without informants
+# d_missing_srpe_only = d_missing_srpe %>% dplyr::select(-rpe, -duration)
+# imp.id = mice(d_missing_srpe_only, seed = 1234, print = FALSE) 
+# 
+# # fit our models
+# fit_target = glm(injury ~ srpe + age, family = "binomial", data = d_sim_inj)
+# fit1 = with(imp.itt, glm(injury ~ srpe + age, family = binomial))
+# fit2 = with(imp.jav, glm(injury ~ srpe + age, family = binomial))
+# fit3 = with(imp.pas, glm(injury ~ srpe + age, family = binomial))
+# fit4 = with(imp.id, glm(injury ~ srpe + age, family = binomial))
 
 # function for obtaining parameters from any model fit
 # specify method for a column with the model-type
@@ -224,32 +219,33 @@ fit4 = with(imp.id, glm(injury ~ srpe + age, family = binomial))
 get_params = function(fit, method, imp = TRUE){
   if(imp){
   d_params = summary(mice::pool(fit), "all", conf.int = TRUE) %>% 
-          dplyr::select(estimate, CI_low = "2.5 %", CI_high = "97.5 %") 
+          dplyr::select(term, estimate, CI_low = "2.5 %", CI_high = "97.5 %") %>% 
+          as_tibble() %>% 
+          mutate(term =  as.character(term))
   } else {
   d_params = parameters::parameters(fit) %>% tibble() %>% 
-          dplyr::select(estimate = Coefficient, CI_low, CI_high)
+          dplyr::select(term = Parameter, estimate = Coefficient, CI_low, CI_high)
   }
   d_params = d_params %>% mutate(method = method) 
   d_params
 }
 
-tab_target = get_params(fit_target, "No imputation", imp = FALSE)  
-tab1 = get_params(fit1, "Impute then transform")  
-tab2 = get_params(fit2, "Transform then impute")  
-tab3 = get_params(fit3, "Passive Imputation")  
-tab4 = get_params(fit4, "Impute transformed alone")  
-d_fits = bind_rows(tab_target, tab1, tab2, tab3, tab4)
+# tab_target = get_params(fit_target, "No imputation", imp = FALSE)  
+# tab1 = get_params(fit1, "Impute then transform")  
+# tab2 = get_params(fit2, "Transform then impute")  
+# tab3 = get_params(fit3, "Passive Imputation")  
+# tab4 = get_params(fit4, "Impute transformed alone")  
+# d_fits = bind_rows(tab_target, tab1, tab2, tab3, tab4)
 
 # create function based on all this
-
-sim_imp_derivedvar = function(d_missing, run = 1){
+sim_impfit_derivedvar = function(d_missing, run = 1){
     target_srpe = d_missing$srpe
 
     # Method 1 Impute, then transform
     imp1 = mice(d_missing, print = FALSE, seed = 1234)
     long1 = mice::complete(imp1, "long", include = TRUE)
     long1$srpe = with(long1, rpe*duration)
-    imp.itt = as.mids(long1, print = FALSE)
+    imp.itt = as.mids(long1)
 
     # Method 2 Transform, then impute
     d_missing_srpe = d_missing %>% mutate(srpe = rpe * duration)
@@ -283,7 +279,7 @@ sim_imp_derivedvar = function(d_missing, run = 1){
     tab_target = get_params(fit_target, "No imputation", imp = FALSE)  
     tab1 = get_params(fit1, "Impute then transform")  
     tab2 = get_params(fit2, "Transform then impute")  
-    tab3 = get_params(fit3, "Passive Imputation")  
+    tab3 = get_params(fit3, "Passive imputation")  
     tab4 = get_params(fit4, "Impute transformed alone")  
 
     d_fits = bind_rows(tab_target, tab1, tab2, tab3, tab4)
@@ -291,23 +287,216 @@ sim_imp_derivedvar = function(d_missing, run = 1){
     d_fits
 }
 
-d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
-sim_imp_derivedvar(d_missing)
+# d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
+# sim_impfit_derivedvar(d_missing)
 
-folder_da = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\derived_var_analyis\\"
+# function for adding the target srpe values
+# to an imputed dataset
+add_target_imp = function(d, imp_rows_pos, target, method){
+  d = d %>% rownames_to_column() %>%
+    mutate(imp_place = ifelse(rowname %in% imp_rows_pos, 1, 0),
+           target = target,
+           method = method) %>%
+    dplyr::select(-rowname)
+  d
+}
 
+# create function based on all this
+sim_imp_derivedvar = function(d_missing, target, run = 1){
+  
+  # Method 1 Impute, then transform
+  imp1 = mice(d_missing, print = FALSE, seed = 1234)
+  long1 = mice::complete(imp1, "long", include = TRUE)
+  long1$srpe = with(long1, rpe*duration)
+  imp.itt = as.mids(long1)
+  
+  # Method 2 Transform, then impute
+  d_missing_srpe = d_missing %>% mutate(srpe = rpe * duration)
+  # We may prevent automatic removal by setting the relevant entries 
+  # in the predictorMatrix to zero.
+  # This is a little faster (5-10%) and cleans out the warning.
+  pred = make.predictorMatrix(d_missing_srpe)
+  pred[c("rpe", "srpe"), c("rpe", "srpe")] = 0
+  pred[c("duration", "srpe"), c("duration", "srpe")] = 0
+  meth_pmm = make.method(d_missing_srpe)
+  imp.jav = mice(d_missing_srpe, meth = meth_pmm, pred = pred, seed = 1234, print = FALSE)
+  
+  # Method 3 Passive Imputation
+  meth = make.method(d_missing_srpe)
+  meth["srpe"] = "~I(rpe*duration)" # we add the calculation for sRPE among the methods
+  pred2 = make.predictorMatrix(d_missing_srpe)
+  pred2[c("rpe", "duration"), "srpe"] = 0
+  imp.pas = mice(d_missing_srpe, meth = meth, pred = pred2, print = FALSE, seed = 1234)
+  
+  # Method 4 Impute derived without informants
+  d_missing_srpe_only = d_missing_srpe %>% dplyr::select(-rpe, -duration)
+  imp.id = mice(d_missing_srpe_only, seed = 1234, print = FALSE) 
+  
+  # create imputed datasets
+  imp_rows_pos = which(is.na(d_missing$rpe) | is.na(d_missing$duration))
+  d_imputed1 = mice::complete(imp.itt, "all") %>% 
+               map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Impute then transform")) %>% 
+               imap(., ~mutate(., dataset_n = .y)) %>% 
+               bind_rows() %>% filter(dataset_n != 0) #unimputed datasetis included in the ITT method
+  d_imputed2 = mice::complete(imp.jav, "all") %>% 
+               map(. %>% add_target_imp(., imp_rows_pos, target = target, method =  "Transform then impute")) %>% 
+               imap(., ~mutate(., dataset_n = .y)) %>% 
+               bind_rows()
+  d_imputed3 = mice::complete(imp.pas, "all") %>% 
+               map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Passive imputation")) %>% 
+               imap(., ~mutate(., dataset_n = .y)) %>% 
+               bind_rows()
+  d_imputed4 = mice::complete(imp.id, "all") %>% 
+               map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Impute transformed alone")) %>% 
+               imap(., ~mutate(., dataset_n = .y)) %>% 
+               bind_rows()
+  d_imp = bind_rows(d_imputed1, d_imputed2, d_imputed3, d_imputed4) %>% tibble()
+  d_imp = d_imp %>% mutate(rep = run)
+  d_imp 
+}
+
+# target_srpe = d_sim_inj$srpe
+# testting = sim_imp_derivedvar(d_missing, target_srpe)
+
+# performing simulations with n runs
 # the warnings are caused by collinearity between the variables
 # which is expected
+base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+folder_da_fits = paste0(base_folder, "derived_var_fits\\")
+folder_da_imps = paste0(base_folder, "derived_var_imps\\")
+
+# we create fake injuries, and the ideal logistic regression model
+d_sim_inj = d_srpe %>% 
+  mutate(inj_prop = inj_probability(srpe, age), 
+         injury = rbinom(length(inj_prop), 1, prob = inj_prop))
+
+# now we make out example data that we'll remove data from
+d_exdata = d_sim_inj %>% rownames_to_column() %>% dplyr::select(-srpe)
+target_srpe = d_sim_inj$srpe
+
 options(warn=-1)
 set.seed = 1234
-runs = 10
+runs = 1000
+target_srpe = d_sim_inj$srpe
 for(i in 1:runs) {
   d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
-  d_sim = sim_imp_derivedvar(d_missing)
-  saveRDS(d_sim, file=paste0(folder_da,i,"_d_derived_var_fits.rds"))
+  d_sim_fits = sim_impfit_derivedvar(d_missing, run = i)
+  d_sim_imps = sim_imp_derivedvar(d_missing, target_srpe, run = i)
+  saveRDS(d_sim_fits, file=paste0(folder_da_fits, i,"_d_derived_var_fits.rds"))
+  saveRDS(d_sim_imps, file=paste0(folder_da_imps, i,"_d_derived_var_imps.rds"))
 }
 options(warn=0)
 
+#--------------------------------Performance measures
+
+# reading the simulated results from fits
+files_da_fits = list.files(path = folder_da_fits)
+d_fit_estimates = data.frame()
+for(i in 1:length(files_da_fits)){
+  temp_data = readRDS(paste0(folder_da_fits, i,"_d_derived_var_fits.rds"))
+  d_fit_estimates = rbind(d_fit_estimates, temp_data)
+}
+
+# reading the simulated imputation datasets
+files_da_imps = list.files(path = folder_da_imps)
+d_imp = data.frame()
+for(i in 1:length(files_da_imps)){
+  temp_data = readRDS(paste0(folder_da_imps, i,"_d_derived_var_imps.rds"))
+  d_imp = rbind(d_imp, temp_data)
+}
+
+
+# functions for easily calculating certain perf param
+# needs vectors of estimates and target value
+raw_bias = function(estimate, target){
+  mean(estimate - target)
+}
+
+percent_bias = function(estimate, target){
+  mean(100*((estimate - target)/target))
+}
+
+rmse = function(estimate, target){
+  sqrt(mean((estimate - target)^2)) 
+}
+
+mcse_rmse = function(estimate, target, nsim){
+  
+  d_se = bind_cols(data.frame(estimate), data.frame(target)) 
+  d_est = data.frame(numeric(nrow(d_se)))
+  colnames(d_est) = "rmse_j"
+  for(i in 1:nrow(d_se)){
+    d_temp = d_se[-i,]
+    rmse = rmse(d_temp$estimate, d_temp$target)
+    d_est[i,1] = rmse
+  }
+  
+  rmse_j = d_est$rmse_j
+  main_rmse = rmse(estimate, target)
+  mcse = sqrt(sum((rmse_j-main_rmse)^2)/(nsim*(nsim-1)))
+  mcse
+}
+
+coverage = function(ci_low, ci_high, target, denominator){
+  is_covered = ifelse((ci_low < target) & (target < ci_high), 1, 0)
+  cr = 100*(sum(is_covered == 1, na.rm = TRUE)/denominator)
+  cr
+}
+
+mcse_coverage = function(ci_low, ci_high, target, denominator, nsim){
+  is_covered = ifelse((ci_low < target) & (target < ci_high), 1, 0)
+  cr = 100*(sum(is_covered == 1, na.rm = TRUE)/denominator)
+  mcse = sqrt(((95-cr)*(5-cr))/nsim)
+  mcse
+}
+
+average_width = function(ci_low, ci_high){
+   mean(ci_high-ci_low)
+}
+
+
+
+# between simulation variation estimates
+perf_estimates_simvar = d_fit_estimates %>% 
+  group_by(method) %>% 
+  summarise(rb = raw_bias(estimate, 1),
+            pb = percent_bias(estimate, 1),
+            rmse = rmse(estimate, 1),
+            coverage = coverage(CI_low, CI_high, 1, n()),
+            average_width = average_width(CI_low, CI_high),
+            mcse_rmse = mcse_rmse(estimate, rep(1, n()), runs),
+            mcse_coverage = mcse_coverage(CI_low, CI_high, 1, n(), runs)) %>% ungroup()
+
+# comparing estimates to target estimate, the estimate from fitting a logistic regression
+perf_estimates_targetcoef = d_fit_estimates_srpe %>% filter(method != "No imputation") %>% 
+  group_by(method) %>% 
+  summarise(rb = raw_bias(estimate, target_est),
+            pb = percent_bias(estimate, target_est),
+            rmse = rmse(estimate, target_est),
+            coverage = coverage(CI_low, CI_high, target_est, n()),
+            average_width = average_width(CI_low, CI_high),
+            mcse_rmse = mcse_rmse(estimate, target_est, runs),
+            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, runs))
+
+
+# using target param as ideal
+target_est = d_fit_estimates %>% filter(term == "srpe", method == "No imputation") %>% distinct(estimate) %>% pull()
+d_fit_estimates_srpe = d_fit_estimates %>% mutate(target_est = target_est) %>% filter(term == "srpe")
+
+d_fit_estimates_srpe %>% filter(method != "No imputation") %>% 
+  group_by(method) %>% 
+  mutate(diff = estimate - target_est,
+         se = diff^2,
+         coverage = ifelse(CI_low < target_est & target_est < CI_high, 1, 0),
+         width = CI_high-CI_low) %>% 
+  summarise(RB = mean(diff),
+            PB = 100*abs(mean(diff/diff)),
+            RMSE = sqrt(mean(diff)^2),
+            CR = 100*(sum(coverage == 1, na.rm = TRUE)/n()),
+            AW = mean(width))
+            
+
+  
 
 
 ## TODO Create function for estimating parameters
