@@ -376,7 +376,7 @@ target_srpe = d_sim_inj$srpe
 
 options(warn=-1)
 set.seed = 1234
-runs = 1000
+runs = 1900
 target_srpe = d_sim_inj$srpe
 for(i in 1:runs) {
   d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
