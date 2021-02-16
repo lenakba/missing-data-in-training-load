@@ -101,7 +101,7 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
             coverage = coverage(CI_low, CI_high, target_est, n()),
             average_width = average_width(CI_low, CI_high),
             mcse_rmse = mcse_rmse(estimate, target_est, runs),
-            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, runs))
+            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), runs))
 
 ## TODO evaluate imputation points by themselves
 
