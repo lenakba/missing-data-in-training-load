@@ -89,11 +89,15 @@ perf_estimates_simvar = d_fit_estimates %>%
             mcse_coverage = mcse_coverage(CI_low, CI_high, 1, n(), runs)) %>% ungroup()
 
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
-# using target param as ideal
-target_est = d_fit_estimates %>% filter(term == "srpe", method == "No imputation") %>% distinct(estimate) %>% pull()
-d_fit_estimates_srpe = d_fit_estimates %>% mutate(target_est = target_est) %>% filter(term == "srpe")
-perf_estimates_targetcoef = d_fit_estimates_srpe %>% 
+# using target coefficient is ideal
+# the real coefficient is: 0.0003
+target_coef = 0.0003
+d_fit_estimates_srpe = d_fit_estimates %>% 
   filter(method != "No imputation") %>% 
+  mutate(target_est = target_coef) %>% 
+  filter(term == "srpe")
+
+perf_estimates_targetcoef = d_fit_estimates_srpe %>% 
   group_by(method) %>% 
   summarise(rb = raw_bias(estimate, target_est),
             pb = percent_bias(estimate, target_est),
@@ -101,7 +105,8 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
             coverage = coverage(CI_low, CI_high, target_est, n()),
             average_width = average_width(CI_low, CI_high),
             mcse_rmse = mcse_rmse(estimate, target_est, runs),
-            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), runs))
+            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), runs)) %>% 
+  arrange(rmse)
 
 ## TODO evaluate imputation points by themselves
 
