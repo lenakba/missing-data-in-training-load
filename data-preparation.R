@@ -286,12 +286,12 @@ date_infovars = c("datekey", "day_of_week", "week_nr", "match_indicator", "n_mat
 d_load_full_dt = d_load_full %>% select(-all_of(date_infovars)) %>% left_join(d_weeks, by = c("training_date"))
 
 # days that are M+1 or M+2 are sRPE = 0 and total_distance = 0
-d_load_final = d_load_full_dt %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe),
+d_load_full_dt = d_load_full_dt %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe),
                            total_distance_daily = ifelse(is.na(total_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_daily),
                            total_distance_minute = ifelse(is.na(total_distance_minute) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_minute))
 
 # now find implicit missing
-d_load_full = d_load_full %>% mutate(missing_td = ifelse(is.na(missing_td), 2, missing_td),
+d_load_full_dt = d_load_full_dt %>% mutate(missing_td = ifelse(is.na(missing_td), 2, missing_td),
                                      missing_td_text = ifelse(is.na(missing_td_text), "GPS use unknown", missing_td_text),
                                      missing_srpe = ifelse(is.na(missing_srpe), 2, missing_srpe),
                                      missing_srpe_text = ifelse(is.na(missing_srpe_text), "Missing Implicitly", missing_srpe_text))
@@ -310,22 +310,21 @@ d_player_srpe = d_player_srpe %>% mutate(missing_player = ifelse(player_id %in% 
                                          missing_duration = ifelse(is.na(duration), 1, 0),
                                          missing_duration_text = ifelse(is.na(duration), "Missing Explicitly", "Not Missing"))
 
-
-# add the date data  so that we can find which days of the newly added ones are matches and freedays etc.
-d_srpe = d_player_srpe %>% left_join(d_weeks, by = "training_date")
-
 # adding study days not in the rpe dataset
-d_srpe_full = d_srpe %>% group_by(player_id) %>% 
+d_srpe_full = d_player_srpe %>% group_by(player_id) %>% 
   tidyr::complete(training_date = seq.Date(first_date, lubridate::as_date("2019-12-03"), by = "day")) %>% ungroup()
 
 # filling missing player variables
 d_srpe_full = d_srpe_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, .direction = "downup") %>% ungroup()
 
+# add the date data  so that we can find which days of the newly added ones are matches and freedays etc.
+d_srpe_full_dt = d_srpe_full %>% left_join(d_weeks, by = "training_date")
+
 # adding load for days we KNOW had no load
-d_srpe_full  = d_srpe_full %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe))
+d_srpe_full_dt  = d_srpe_full_dt %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe))
 
 # now find implicit missing
-d_srpe_full = d_srpe_full %>% mutate(missing_rpe = ifelse(is.na(missing_rpe), 2, missing_rpe),
+d_srpe_full_dt = d_srpe_full_dt %>% mutate(missing_rpe = ifelse(is.na(missing_rpe), 2, missing_rpe),
                                        missing_rpe_text = ifelse(is.na(missing_rpe_text), "Missing Implicitly", missing_rpe_text),
                                        missing_duration = ifelse(is.na(missing_duration), 2, missing_duration),
                                        missing_duration_text = ifelse(is.na(missing_duration_text), "Missing Implicitly", missing_duration_text))
@@ -337,12 +336,13 @@ set.seed(1234) # in case we need to run this script and create the data again
 # the new ID has nothing to do with the old one
 # the function creates the same ids for the gps data as for the srpe per session data no problemo
 ano_func = make_anonymize_func(d_load_full$player_id)
-d_load_anon = d_load_full %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) # remove old ID
-d_srpe_anon = d_srpe_full %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
+d_load_anon = d_load_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) # remove old ID
+d_srpe_anon = d_srpe_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
-
 # select wanted columns in the order that we want them
-d_load_final = d_load_anon %>% select(p_id, training_date, day_of_week, load, duration, difficulty, total_distance_daily, missing_load, missing_load_text, missing_td, missing_td_text, missing_player, missing_player_text)
+shared_vars = c("p_id", "training_date", "day_of_week", "n_matches", "mc_day")
+d_load_final = d_load_anon %>% select(all_of(shared_vars), srpe, total_distance_daily, starts_with("missing"))
+d_srpe_final = d_srpe_anon %>% select(all_of(shared_vars), rpe, duration, starts_with("missing"))
 
 # where to place the saved data
 folder_export = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
