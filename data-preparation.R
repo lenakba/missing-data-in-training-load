@@ -302,7 +302,7 @@ d_load_full_dt = d_load_full_dt %>% mutate(missing_td = ifelse(is.na(missing_td)
 d_player_srpe = d_player %>% left_join(d_srpe_session, by = "player_id")
 
 # adding indicator for players who have no data
-missing_players = d_srpe %>% filter(is.na(srpe)) %>% pull(player_id)
+missing_players = d_player_srpe %>% filter(is.na(srpe)) %>% pull(player_id)
 d_player_srpe = d_player_srpe %>% mutate(missing_player = ifelse(player_id %in% missing_players, 1, 0),
                                          missing_player_text = ifelse(missing_player == 1, "Player with no sRPE measures", "Player with sRPE measures"),
                                          missing_rpe = ifelse(is.na(rpe), 1, 0),
