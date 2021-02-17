@@ -209,7 +209,7 @@ d_free_weeks = d_date_full %>% filter(n_matches == 0) %>% mutate(mc_day = "Non-m
 d_weeks_full = bind_rows(d_free_weeks, d_match_weeks, d_match_weeks_dbl) %>% arrange(training_date)
 
 # this is now the ready date dataset which we will combine later to get days without training
-d_weeks = d_weeks_full %>% select(datekey, training_date, day_of_week, week_nr, match_indicator, n_matches, mc_day)
+d_weeks = d_weeks_full %>% select(datekey, training_date, day_of_week, week_nr, match_indicator, mc_day)
 
 #--------------------------------------------Step 6: Combine RPE and GPS data at the daily level so that we have both in the same dataset
 
@@ -282,7 +282,7 @@ d_load_full = d_load %>% group_by(player_id) %>%
 d_load_full = d_load_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, .direction = "downup") %>% ungroup()
 
 # add the date data again so that we can find which days of the newly added ones are matches and freedays etc.
-date_infovars = c("datekey", "day_of_week", "week_nr", "match_indicator", "n_matches", "mc_day")
+date_infovars = c("datekey", "day_of_week", "week_nr", "match_indicator", "mc_day")
 d_load_full_dt = d_load_full %>% select(-all_of(date_infovars)) %>% left_join(d_weeks, by = c("training_date"))
 
 # days that are M+1 or M+2 are sRPE = 0 and total_distance = 0
@@ -340,7 +340,7 @@ d_load_anon = d_load_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-
 d_srpe_anon = d_srpe_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
 # select wanted columns in the order that we want them
-shared_vars = c("p_id", "training_date", "day_of_week", "n_matches", "mc_day")
+shared_vars = c("p_id", "training_date", "day_of_week", "mc_day")
 d_load_final = d_load_anon %>% select(all_of(shared_vars), srpe, total_distance_daily, starts_with("missing"))
 d_srpe_final = d_srpe_anon %>% select(all_of(shared_vars), rpe, duration, starts_with("missing"))
 
