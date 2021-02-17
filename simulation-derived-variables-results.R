@@ -106,7 +106,8 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
             average_width = average_width(CI_low, CI_high),
             mcse_rmse = mcse_rmse(estimate, target_est, runs),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), runs)) %>% 
-  arrange(rmse)
+  arrange(desc(rmse))
+
 
 ## TODO evaluate imputation points by themselves
 
@@ -119,10 +120,15 @@ for(i in 1:runs){
   d_imp = rbind(d_imp, temp_data)
 }
 
-# l_imputed1 = mice::complete(imp.itt, "all") 
-# l_imputed2 = mice::complete(imp.jav, "all", include = TRUE)
-# l_imputed3 = mice::complete(imp.pas, "all")
-# l_imputed4 = mice::complete(imp.id, "all") 
+perf_esimates_impvalues = d_imp %>% filter(imp_place == 1) %>% 
+  group_by(method) %>% 
+  summarise(rb = raw_bias(srpe, target),
+            pb = percent_bias(srpe, target),
+            rmse = rmse(srpe, target),
+            mcse_rmse = mcse_rmse(srpe, target, runs)) %>% 
+  arrange(rmse)
+
+
 
 # how accurately do these methods impute?
 # imp_rows = which(is.na(d_missing$rpe) | is.na(d_missing$duration))
