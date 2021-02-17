@@ -10,10 +10,10 @@ d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td
 d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";")
 
 # remove missing
-# select vars we need in the simulation, daily vars we think affect the level of sRPE and total distance
-infovars = c("p_id", "training_date", "n_matches", "mc_day")
-d_td = d_td_full %>% filter(!is.na(total_distance_daily)) %>% select(all_of(infovars), td = total_distance_daily, srpe) 
-d_srpe = d_rpe_full %>% filter(!is.na(rpe) & !is.na(duration)) %>% select(all_of(infovars), rpe, duration)
+# select vars we need in the simulation, key variables we think are correlated with the level of sRPE and total distance
+keyvars = c("p_id", "training_date", "mc_day")
+d_td = d_td_full %>% filter(!is.na(total_distance_daily)) %>% select(all_of(keyvars), td = total_distance_daily, srpe) 
+d_srpe = d_rpe_full %>% filter(!is.na(rpe) & !is.na(duration)) %>% select(all_of(keyvars), rpe, duration)
 
 # vector of chosen missing proportions
 missing_prop_v = c(0.05, 0.1, 0.2, 0.4, 0.6, 0.8)
