@@ -322,10 +322,10 @@ d_srpe_full = d_srpe %>% group_by(player_id) %>%
 d_srpe_full = d_srpe_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, .direction = "downup") %>% ungroup()
 
 # adding load for days we KNOW had no load
-d_srpe_final  = d_srpe_full %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe))
+d_srpe_full  = d_srpe_full %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe))
 
 # now find implicit missing
-d_srpe_final = d_srpe_final %>% mutate(missing_rpe = ifelse(is.na(missing_rpe), 2, missing_rpe),
+d_srpe_full = d_srpe_full %>% mutate(missing_rpe = ifelse(is.na(missing_rpe), 2, missing_rpe),
                                        missing_rpe_text = ifelse(is.na(missing_rpe_text), "Missing Implicitly", missing_rpe_text),
                                        missing_duration = ifelse(is.na(missing_duration), 2, missing_duration),
                                        missing_duration_text = ifelse(is.na(missing_duration_text), "Missing Implicitly", missing_duration_text))
@@ -338,7 +338,7 @@ set.seed(1234) # in case we need to run this script and create the data again
 # the function creates the same ids for the gps data as for the srpe per session data no problemo
 ano_func = make_anonymize_func(d_load_full$player_id)
 d_load_anon = d_load_full %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) # remove old ID
-d_srpe_anon = d_srpe_final %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
+d_srpe_anon = d_srpe_full %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
 
 # select wanted columns in the order that we want them
