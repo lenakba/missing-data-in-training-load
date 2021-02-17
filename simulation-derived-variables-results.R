@@ -128,31 +128,6 @@ perf_esimates_impvalues = d_imp %>% filter(imp_place == 1) %>%
             mcse_rmse = mcse_rmse(srpe, target, runs)) %>% 
   arrange(rmse)
 
-
-
-# how accurately do these methods impute?
-# imp_rows = which(is.na(d_missing$rpe) | is.na(d_missing$duration))
-# calc_imp_params = function(d, method){
-# d = d %>% rownames_to_column() %>% 
-#   mutate(imp_place = ifelse(rowname %in% imp_rows, 1, 0), 
-#          target_srpe = target_srpe,
-#          method = method) %>% 
-#   dplyr::select(-rowname) %>% 
-#   filter(imp_place == 1) %>% 
-#   mutate(raw_bias = srpe-target_srpe,
-#          perc_bias = round(100*((srpe-target_srpe)/target_srpe)),
-#          rmse = sqrt((srpe-target_srpe)^2)) %>% 
-#   summarise(raw_bias = mean(raw_bias, na.rm = TRUE),
-#             perc_bias = mean(perc_bias, na.rm = TRUE),
-#             rmse = mean(rmse, na.rm = TRUE))
-#   d
-# }
-# 
-# l_imputed1 %>% map(. %>% calc_imp_params(., method = "ITT"))
-# l_imputed2 %>% map(. %>% calc_imp_params(., method = "JAV"))
-# l_imputed3 %>% map(. %>% calc_imp_params(., method = "PAS"))
-# l_imputed4 %>% map(. %>% calc_imp_params(., method = "ID"))
-
 ## TODO visualize imputations
 # densityplot_itt = densityplot(x=imp.itt, data = ~srpe)
 # densityplot_jav = densityplot(x=imp.jav, data = ~srpe)
