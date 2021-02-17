@@ -350,4 +350,5 @@ folder_export = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\
 # write .csv
 # write_delim is preferable, but write_excel_csv is required for excel to understand
 # that the file encoding is UTF-8
-write_excel_csv(d_load_final, paste0(folder_export, "norwegian_premier_league_football_anon.csv"), delim = ";", na = "")
+write_excel_csv(d_load_final, paste0(folder_export, "norwegian_premier_league_football_td_anon.csv"), delim = ";", na = "")
+write_excel_csv(d_srpe_final, paste0(folder_export, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";", na = "")
