@@ -106,7 +106,6 @@ fit_glm = function(d){
   fit
 }
 
-fit.rdm =  fit_glm(d.rdm)
 fit.mean = fit_glm(d.mean)
 fit.reg =  fit_glm(d.reg)
 fit.pmm =  with(mids.itt.pmm, glm(injury ~ srpe, family = binomial))
@@ -134,14 +133,13 @@ get_params = function(fit, method, pool = FALSE){
 
 target_param = get_params(fit.target, "No Imputation")  
 
-tab1 = get_params(fit.rdm, "Random Sampling Imputation")  
-tab2 = get_params(fit.mean, "Mean Imputation")  
-tab3 = get_params(fit.reg, "Regression Imputation")  
-tab4 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
-tab5 = get_params(fit.median, "Median Imputation")  
-tab6 = get_params(fit.cc, "Complete Case Analysis")  
+tab1 = get_params(fit.mean, "Mean Imputation")  
+tab2 = get_params(fit.reg, "Regression Imputation")  
+tab3 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
+tab4 = get_params(fit.median, "Median Imputation")  
+tab5 = get_params(fit.cc, "Complete Case Analysis")  
 
-d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5, tab6)
+d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5)
 d_fits = d_fits %>% mutate(rep = run)
 d_fits
 
@@ -185,14 +183,13 @@ sim_impfit = function(d_missing, target_param, run = 1){
   fit.cc =  fit_glm(d.cc)
   
   # fetch model parameters
-  tab1 = get_params(fit.rdm, "Random Sampling Imputation")  
-  tab2 = get_params(fit.mean, "Mean Imputation")  
-  tab3 = get_params(fit.reg, "Regression Imputation")  
-  tab4 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
-  tab5 = get_params(fit.median, "Median Imputation")  
-  tab6 = get_params(fit.cc, "Complete Case Analysis")  
+  tab1 = get_params(fit.mean, "Mean Imputation")  
+  tab2 = get_params(fit.reg, "Regression Imputation")  
+  tab3 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
+  tab4 = get_params(fit.median, "Median Imputation")  
+  tab5 = get_params(fit.cc, "Complete Case Analysis")  
   
-  d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5, tab6)
+  d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5)
   d_fits = d_fits %>% mutate(rep = run)
   d_fits
 }
