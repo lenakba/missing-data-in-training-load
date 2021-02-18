@@ -269,11 +269,11 @@ sim_impfit_derivedvar = function(d_missing, run = 1){
     imp.id = mice(d_missing_srpe_only, seed = 1234, print = FALSE) 
 
     # fit our models
-    fit_target = glm(injury ~ srpe + age, family = "binomial", data = d_sim_inj)
-    fit1 = with(imp.itt, glm(injury ~ srpe + age, family = binomial))
-    fit2 = with(imp.jav, glm(injury ~ srpe + age, family = binomial))
-    fit3 = with(imp.pas, glm(injury ~ srpe + age, family = binomial))
-    fit4 = with(imp.id, glm(injury ~ srpe + age, family = binomial))
+    fit_target = glm(injury ~ srpe, family = "binomial", data = d_sim_inj)
+    fit1 = with(imp.itt, glm(injury ~ srpe, family = binomial))
+    fit2 = with(imp.jav, glm(injury ~ srpe, family = binomial))
+    fit3 = with(imp.pas, glm(injury ~ srpe, family = binomial))
+    fit4 = with(imp.id, glm(injury ~ srpe, family = binomial))
 
     tab_target = get_params(fit_target, "No imputation", imp = FALSE)  
     tab1 = get_params(fit1, "Impute then transform")  
