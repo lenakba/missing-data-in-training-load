@@ -76,11 +76,6 @@ impute_median = function(var){
   var_imp
 }
 
-# Imputing by random sampling
-# so we can compare methods to this as a baseline
-mids.rdm = mice(d_missing_srpe20, method = "sample", m = 1, maxit = 1)
-d.rdm = mice::complete(mids.rdm, include = FALSE) %>% mutate(srpe = rpe*duration)
-
 # Mean imputation
 mids.mean = mice(d_missing_srpe20, method = "mean", m = 1, maxit = 1)
 d.mean = mice::complete(mids.mean, include = FALSE) %>% mutate(srpe = rpe*duration)
