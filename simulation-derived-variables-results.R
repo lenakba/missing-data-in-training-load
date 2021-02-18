@@ -91,7 +91,7 @@ perf_estimates_simvar = d_fit_estimates %>%
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
 # using target coefficient is ideal
 # the real coefficient is: 0.0003
-target_coef = 0.0003
+target_coef = 0.003
 d_fit_estimates_srpe = d_fit_estimates %>% 
   filter(method != "No imputation") %>% 
   mutate(target_est = target_coef) %>% 
