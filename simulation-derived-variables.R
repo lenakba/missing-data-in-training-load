@@ -158,15 +158,14 @@ log_reg = function(tl_coef){
 }
 
 # linear logistic regression function
-inj_probability = function(srpe, age){
-  y = log_reg(-0.8 + 0.0003*srpe + (0.0003*age)) 
+inj_probability = function(srpe){
+  y = log_reg(-0.6 + 0.0003*srpe) 
   y
 }
 
 #-------------------------------1 permutation
 
 # we fetch our MCAR function from the main simulation
-set.seed(1234)
 add_mcar = function(d, missing_prop){
   n_values = nrow(d)
   random_spots_rpe = sample(1:n_values, round(missing_prop*n_values))
@@ -365,9 +364,9 @@ base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulatio
 folder_da_fits = paste0(base_folder, "derived_var_fits\\")
 folder_da_imps = paste0(base_folder, "derived_var_imps\\")
 
-# we create fake injuries, and the ideal logistic regression model
+# we create fake injuries
 d_sim_inj = d_srpe %>% 
-  mutate(inj_prop = inj_probability(srpe, age), 
+  mutate(inj_prop = inj_probability(srpe), 
          injury = rbinom(length(inj_prop), 1, prob = inj_prop))
 
 # now we make out example data that we'll remove data from
