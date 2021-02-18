@@ -159,7 +159,7 @@ log_reg = function(tl_coef){
 
 # linear logistic regression function
 inj_probability = function(srpe){
-  y = log_reg(-0.6 + 0.0003*srpe) 
+  y = log_reg(-2 + 0.003*srpe) 
   y
 }
 
