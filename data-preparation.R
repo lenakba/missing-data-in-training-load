@@ -291,10 +291,13 @@ d_load_full_dt = d_load_full_dt %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day =
                            total_distance_minute = ifelse(is.na(total_distance_minute) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_minute))
 
 # now find implicit missing
+# and fill in gaps in the microcycle-day-variabel:
+# missing days are days in a week with the match placed unconventionally, i.e. on a wednesday
 d_load_full_dt = d_load_full_dt %>% mutate(missing_td = ifelse(is.na(missing_td), 2, missing_td),
                                      missing_td_text = ifelse(is.na(missing_td_text), "GPS use unknown", missing_td_text),
                                      missing_srpe = ifelse(is.na(missing_srpe), 2, missing_srpe),
-                                     missing_srpe_text = ifelse(is.na(missing_srpe_text), "Missing Implicitly", missing_srpe_text))
+                                     missing_srpe_text = ifelse(is.na(missing_srpe_text), "Missing Implicitly", missing_srpe_text),
+                                     mc_day = ifelse(is.na(mc_day), "Unconventional match week", mc_day))
 
 #------------------------------------- Step 8 do the same for srpe at the session level
 
@@ -327,7 +330,8 @@ d_srpe_full_dt  = d_srpe_full_dt %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day 
 d_srpe_full_dt = d_srpe_full_dt %>% mutate(missing_rpe = ifelse(is.na(missing_rpe), 2, missing_rpe),
                                        missing_rpe_text = ifelse(is.na(missing_rpe_text), "Missing Implicitly", missing_rpe_text),
                                        missing_duration = ifelse(is.na(missing_duration), 2, missing_duration),
-                                       missing_duration_text = ifelse(is.na(missing_duration_text), "Missing Implicitly", missing_duration_text))
+                                       missing_duration_text = ifelse(is.na(missing_duration_text), "Missing Implicitly", missing_duration_text),
+                                       mc_day = ifelse(is.na(mc_day), "Unconventional match week", mc_day))
 
 #---------------------------------------- Step 8 Anonymize the ID so that the data used in simulations can later be uploaded as-is
 
