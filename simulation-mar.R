@@ -99,7 +99,7 @@ add_mar_rpe = function(d, corr){
                    na_spot_duration = rbinom(length(na_prop), 1, prob = na_prop),
                    rpe = ifelse(na_spot_rpe == 1, NA, rpe),
                    duration = ifelse(na_spot_duration == 1, NA, duration))
-  d
+  d %>% dplyr::select(-starts_with("na"), -freeday, -match)
 }
 
 
@@ -110,15 +110,30 @@ d_exdata_mar3 = add_mar_rpe(d_exdata_mar, "strong")
 
 #----------------------------------------Step 3 Handle missing data in x number of ways
 
-impute_median = function(var){
-  med = median(var, na.rm = TRUE) 
-  var_imp = ifelse(is.na(var), med, var)
-  var_imp
+# impute mean function which calculates the mean by a chosen grouping variable
+impute_mean = function(d, group_var){
+  group_var = enquo(group_var)
+  
+  # calc mean
+  d_imp = d %>% 
+    group_by(!!group_var) %>% 
+    mutate(m_rpe = mean(rpe, na.rm = TRUE),
+           m_duration = mean(duration, na.rm = TRUE)) %>% 
+    ungroup()
+  
+  # impute with the mean
+  d_imp = d_imp %>% mutate(rpe = ifelse(is.na(rpe), m_rpe, rpe),
+                           duration = ifelse(is.na(duration), m_duration, duration),
+                           srpe = rpe*duration) %>% 
+                    dplyr::select(-m_rpe, -m_duration)
+  d_imp
 }
 
-# Mean imputation
-mids.mean = mice(d_missing_srpe20, method = "mean", m = 1, maxit = 1)
-d.mean = mice::complete(mids.mean, include = FALSE) %>% mutate(srpe = rpe*duration)
+# Mean imputation by the mean per player
+d.mean.p_id = impute_mean(d_missing_srpe20, p_id)
+
+# Mean imputation by the mean per week
+d.mean.week = impute_mean(d_missing_srpe20, week_nr)
 
 # Regression imputation
 mids.reg = mice(d_missing_srpe20, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
@@ -146,7 +161,7 @@ fit_glm = function(d){
   fit
 }
 
-fit.mean = fit_glm(d.mean)
+fit.mean.p_id = fit_glm(d.mean.p_id)
 fit.reg =  fit_glm(d.reg)
 fit.pmm =  with(mids.itt.pmm, glm(injury ~ srpe, family = binomial))
 fit.median =  fit_glm(d.median)
