@@ -66,7 +66,47 @@ d_missing_srpe5 = add_mcar_rpe(d_exdata_srpe, 0.05)
 d_missing_srpe20 = add_mcar_rpe(d_exdata_srpe, 0.2) 
 d_missing_srpe80 = add_mcar_rpe(d_exdata_srpe, 0.8) 
 
-# Missing probability is based on other variables (Missing at Random)
+# Create missing with Missing probability based on other variables (Missing at Random)
+
+# we add fake age and sex, and we use the day of the week to determine weekend
+# we'll use these variables to create Missing at Random, but we'll remove
+# the weekend variable later on, so that all we have is training data
+# that the imputation method can use
+srpe_p_id = d_srpe %>% distinct(p_id) 
+srpe_id_base = srpe_p_id %>% mutate(age = sample(18:30, length(srpe_p_id$p_id), replace = TRUE),
+                                    sex = sample(0:1, length(srpe_p_id$p_id), replace = TRUE))
+d_exdata_mar = d_exdata_srpe %>% 
+  left_join(srpe_id_base, by = "p_id") %>% 
+  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0),
+         match = ifelse(mc_day == "M", 1, 0))
+
+# linear logistic regression function
+# for the relationship between different variables and the probability of missing
+mar_function = function(d, corr){
+  if(corr == "light"){
+  y = log_reg(-2 + (0.03*d$age) + (0.02*d$sex) + (0.3*d$freeday))
+  } else if(corr == "medium"){
+  y = log_reg(-2 + (0.08*d$age) + (0.04*d$sex) + (0.8*d$freeday))    
+  }  else if(corr == "strong"){
+  y = log_reg(-2 + (0.13*d$age) + (0.1*d$sex) + (1.8*d$freeday) + (1.8*d$match))     
+  }
+  y
+}
+
+add_mar_rpe = function(d, corr){
+  d = d %>% mutate(na_prop = mar_function(., corr),
+                   na_spot_rpe = rbinom(length(na_prop), 1, prob = na_prop),
+                   na_spot_duration = rbinom(length(na_prop), 1, prob = na_prop),
+                   rpe = ifelse(na_spot_rpe == 1, NA, rpe),
+                   duration = ifelse(na_spot_duration == 1, NA, duration))
+  d
+}
+
+
+d_exdata_mar1 = add_mar_rpe(d_exdata_mar, "light")
+d_exdata_mar2 = add_mar_rpe(d_exdata_mar, "medium")
+d_exdata_mar3 = add_mar_rpe(d_exdata_mar, "strong")
+
 
 #----------------------------------------Step 3 Handle missing data in x number of ways
 
