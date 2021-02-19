@@ -17,7 +17,7 @@ d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_r
 
 # remove missing
 # select vars we need in the simulation, key variables we think are correlated with the level of sRPE and total distance
-keyvars = c("p_id", "training_date", "mc_day")
+keyvars = c("p_id", "training_date", "mc_day", "week_nr")
 d_td = d_td_full %>% filter(!is.na(total_distance_daily)) %>% select(all_of(keyvars), td = total_distance_daily, srpe) 
 d_srpe = d_rpe_full %>% filter(!is.na(rpe) & !is.na(duration)) %>% select(all_of(keyvars), rpe, duration) %>% mutate(srpe = rpe*duration)
 
@@ -145,11 +145,6 @@ imp.pmm = mice::complete(mids.pmm, "long", include = TRUE)
 imp.pmm$srpe = with(imp.pmm, rpe*duration)
 mids.itt.pmm = as.mids(imp.pmm)
 
-# the next methods don't have MICE implementation
-# Median imputation
-d.median = d_missing_srpe20 %>% mutate(rpe = impute_median(rpe),
-                                       duration = impute_median(duration),
-                                       srpe = rpe*duration)
 # complete case analysis
 d.cc = na.omit(d_missing_srpe20) %>% mutate(srpe = rpe*duration)
 
@@ -162,9 +157,9 @@ fit_glm = function(d){
 }
 
 fit.mean.p_id = fit_glm(d.mean.p_id)
+fit.mean.week = fit_glm(d.mean.week)
 fit.reg =  fit_glm(d.reg)
 fit.pmm =  with(mids.itt.pmm, glm(injury ~ srpe, family = binomial))
-fit.median =  fit_glm(d.median)
 fit.cc =  fit_glm(d.cc)
 
 #----------------------------------------------------Step 6 fetch parameters
@@ -187,29 +182,23 @@ get_params = function(fit, method, pool = FALSE){
 }
 
 target_param = get_params(fit.target, "No Imputation")  
-
-tab1 = get_params(fit.mean, "Mean Imputation")  
-tab2 = get_params(fit.reg, "Regression Imputation")  
-tab3 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
-tab4 = get_params(fit.median, "Median Imputation")  
+tab1 = get_params(fit.mean.p_id, "Mean Imputation - Mean per player")  
+tab2 = get_params(fit.mean.week, "Mean Imputation - Mean per week")  
+tab3 = get_params(fit.reg, "Regression Imputation")  
+tab4 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
 tab5 = get_params(fit.cc, "Complete Case Analysis")  
 
 d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5)
-d_fits = d_fits %>% mutate(rep = run)
-d_fits
-
 
 #---------------------------------------------Step 7 create function that performs step 3 to 6 a user-chosen number of times
-sim_impfit = function(d_missing, target_param, run = 1){
+sim_impfit = function(d_missing, target_param, rep = 1){
 
-  # Imputing by random sampling
-  # so we can compare methods to this as a baseline
-  mids.rdm = mice(d_missing, method = "sample", m = 1, maxit = 1, print = FALSE)
-  d.rdm = mice::complete(mids.rdm, include = FALSE) %>% mutate(srpe = rpe*duration)
+  #-----------------impute using all the different methods
+  # Mean imputation by the mean per player
+  d.mean.p_id = impute_mean(d_missing_srpe20, p_id)
   
-  # Mean imputation
-  mids.mean = mice(d_missing, method = "mean", m = 1, maxit = 1, print = FALSE)
-  d.mean = mice::complete(mids.mean, include = FALSE) %>% mutate(srpe = rpe*duration)
+  # Mean imputation by the mean per week
+  d.mean.week = impute_mean(d_missing_srpe20, week_nr)
   
   # Regression imputation
   mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
@@ -221,31 +210,25 @@ sim_impfit = function(d_missing, target_param, run = 1){
   imp.pmm$srpe = with(imp.pmm, rpe*duration)
   mids.itt.pmm = as.mids(imp.pmm)
   
-  # the next methods don't have MICE implementation
-  # Median imputation
-  d.median = d_missing %>% mutate(rpe = impute_median(rpe),
-                                         duration = impute_median(duration),
-                                         srpe = rpe*duration)
   # complete case analysis
   d.cc = na.omit(d_missing) %>% mutate(srpe = rpe*duration)
   
   # fit our models
-  fit.rdm =  fit_glm(d.rdm)
-  fit.mean = fit_glm(d.mean)
+  fit.mean.p_id = fit_glm(d.mean.p_id)
+  fit.mean.week = fit_glm(d.mean.week)
   fit.reg =  fit_glm(d.reg)
   fit.pmm =  with(mids.itt.pmm, glm(injury ~ srpe, family = binomial))
-  fit.median =  fit_glm(d.median)
   fit.cc =  fit_glm(d.cc)
   
   # fetch model parameters
-  tab1 = get_params(fit.mean, "Mean Imputation")  
-  tab2 = get_params(fit.reg, "Regression Imputation")  
-  tab3 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
-  tab4 = get_params(fit.median, "Median Imputation")  
+  tab1 = get_params(fit.mean.p_id, "Mean Imputation - Mean per player")  
+  tab2 = get_params(fit.mean.week, "Mean Imputation - Mean per week")  
+  tab3 = get_params(fit.reg, "Regression Imputation")  
+  tab4 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
   tab5 = get_params(fit.cc, "Complete Case Analysis")  
   
   d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5)
-  d_fits = d_fits %>% mutate(rep = run)
+  d_fits = d_fits %>% mutate(rep = rep)
   d_fits
 }
 
@@ -263,9 +246,10 @@ target_param = get_params(fit.target, "No Imputation")
 d_exdata_srpe = d_srpe %>% dplyr::select(-inj_prop, -srpe)
 
 # this is what will go in the for-loop:
-d_missing_srpe20 = add_mcar_rpe(d_exdata_srpe, 0.8)
-sim_impfit(d_missing_srpe20, target_param, 1)
-
+d_mcar_80 = add_mcar_rpe(d_exdata_srpe, 0.8)
+sim_impfit(d_mcar_80, target_param, 1)
+d_mar1 = add_mar_rpe(d_exdata_mar, "light")
+sim_impfit(d_mar1, target_param, 1)
 
 #----------------------------------------Same for Total distance
 
@@ -330,61 +314,5 @@ mar_function = function(age, sex, weekend){
   y
 }
 
-# we add fake age and sex, and we use the day of the week to determine weekend
-# we'll use these variables to create Missing at Random, but we'll remove
-# the weekend variable later on, so that all we have is training data
-# that the imputation method can use
-td_p_id = d_td %>% distinct(p_id) 
-td_p_id_base = td_p_id %>% mutate(age = sample(18:30, length(td_p_id$p_id), replace = TRUE),
-                                  sex = sample(0:1, length(td_p_id$p_id), replace = TRUE))
-d_td = d_td %>% 
-       left_join(td_p_id_base, by = "p_id") %>% 
-       mutate(weekend = ifelse(day_of_week == "Saturday" | day_of_week == "Sunday", 1, 0)) %>% select(-day_of_week)
-
-d_td = d_td %>% mutate(coefs_mar = mar_function(age, sex, weekend))
-
-# function that simulates injuries based on simulated longitudinal correlations
-sim_long_corr = function(d, clsize, formula){# Simulation of correlated binary responses
-  formula = enquo(formula)
-  
-  # Define the marginal risk [Log-odds scale]
-  logit = function(x) log(x/(1-x))
-  d_formula = d %>% mutate(formula_logit = logit(!!formula))
-  FUN = d_formula %>% pull(formula_logit)
-  
-  # function for creating a covariance matrix with autoregressive correlation
-  # https://i.stack.imgur.com/I3uwR.jpg 
-  # values closer in time are more correlated than those further away in time
-  ar1_cor = function(n, rho = 0.8) {
-    exponent = abs(matrix(1:n - 1, nrow = n, ncol = n, byrow = TRUE) - 
-                     (1:n - 1))
-    rho^exponent
-  }
-  
-  #autoregressive covariance matrix
-  matrix = ar1_cor(clsize)
-  
-  d_sim_long = SimCorMultRes::rbin(
-    # Number of repeated obs. per athlete
-    clsize = clsize,
-    # Formula for the marginal risk model
-    xformula = ~FUN, 
-    # Intercept for marginal risk
-    intercepts = 0,
-    # Coefficents for marginal risk
-    betas = 1,
-    # Correlation matrix for response
-    cor.matrix = matrix,
-    # Link function
-    link = "logit"
-  )
-  d_sim = d_sim_long$simdata %>% tibble() %>% dplyr::select(y)
-  d_sim
-}
-
-n_athletes_td = 38
-clsize_td = nrow(d_td)/n_athletes_td
-
-d_td = d_td %>% mutate(missing_spot = sim_long_corr(d_td, clsize_td, coefs_mar)$y) 
 
 
