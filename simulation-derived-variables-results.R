@@ -54,7 +54,7 @@ coverage = function(ci_low, ci_high, target, denominator){
 mcse_coverage = function(ci_low, ci_high, target, denominator, nsim){
   is_covered = ifelse((ci_low < target) & (target < ci_high), 1, 0)
   cr = 100*(sum(is_covered == 1, na.rm = TRUE)/denominator)
-  mcse = sqrt(((95-cr)*(5-cr))/nsim)
+  mcse = sqrt(abs(((95-cr)*(5-cr)))/nsim)
   mcse
 }
 
@@ -107,7 +107,6 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
             mcse_rmse = mcse_rmse(estimate, target_est, runs),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), runs)) %>% 
   arrange(desc(rmse))
-
 
 ## TODO evaluate imputation points by themselves
 
