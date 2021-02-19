@@ -21,6 +21,12 @@ keyvars = c("p_id", "training_date", "mc_day", "week_nr")
 d_td = d_td_full %>% filter(!is.na(total_distance_daily)) %>% select(all_of(keyvars), td = total_distance_daily, srpe) 
 d_srpe = d_rpe_full %>% filter(!is.na(rpe) & !is.na(duration)) %>% select(all_of(keyvars), rpe, duration) %>% mutate(srpe = rpe*duration)
 
+#------------------------------------------Simulation
+# we have all functions needed for performing the simulation in this section
+# if you want to look at each step in the simulation, please start at the section Step 1
+
+
+
 #------------------------------------------Step 1 add fake injuries with known relationship with load variable
 
 # logistic function
@@ -69,9 +75,7 @@ d_missing_srpe80 = add_mcar_rpe(d_exdata_srpe, 0.8)
 # Create missing with Missing probability based on other variables (Missing at Random)
 
 # we add fake age and sex, and we use the day of the week to determine weekend
-# we'll use these variables to create Missing at Random, but we'll remove
-# the weekend variable later on, so that all we have is training data
-# that the imputation method can use
+# we'll use these variables to create Missing at Random
 srpe_p_id = d_srpe %>% distinct(p_id) 
 srpe_id_base = srpe_p_id %>% mutate(age = sample(18:30, length(srpe_p_id$p_id), replace = TRUE),
                                     sex = sample(0:1, length(srpe_p_id$p_id), replace = TRUE))
@@ -93,6 +97,7 @@ mar_function = function(d, corr){
   y
 }
 
+# adding missing at random to a dataset
 add_mar_rpe = function(d, corr){
   d = d %>% mutate(na_prop = mar_function(., corr),
                    na_spot_rpe = rbinom(length(na_prop), 1, prob = na_prop),
@@ -244,6 +249,17 @@ target_param = get_params(fit.target, "No Imputation")
 # remove variables we in theory wouldn't know about
 # in a real life situation
 d_exdata_srpe = d_srpe %>% dplyr::select(-inj_prop, -srpe)
+
+# for missing at random, we create fake variables with correlation to the amount of missing
+# we add fake age and sex, and we use the day of the week to determine weekend
+# we'll use these variables to create Missing at Random
+srpe_p_id = d_srpe %>% distinct(p_id) 
+srpe_id_base = srpe_p_id %>% mutate(age = sample(18:30, length(srpe_p_id$p_id), replace = TRUE),
+                                    sex = sample(0:1, length(srpe_p_id$p_id), replace = TRUE))
+d_exdata_mar = d_exdata_srpe %>% 
+  left_join(srpe_id_base, by = "p_id") %>% 
+  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0),
+         match = ifelse(mc_day == "M", 1, 0))
 
 # this is what will go in the for-loop:
 d_mcar_80 = add_mcar_rpe(d_exdata_srpe, 0.8)
