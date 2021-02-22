@@ -177,6 +177,15 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 
 # helper function that imputes using all methods and outputs the
 # data with the target srpe we wish to compare
+# in theory, it would be more computationally efficient to have 1 function
+# that imputes data, 1 function that runs the fits on data from the first function,
+# and 1 function that outputs the imputed data from the first function.
+# instead, we have 2 functions that both perform step 1, i.e., we are running it double.
+# this is because more computationally power-efficient code
+# would require more complicated programming. We would have to run fits on lists of data instead of
+# a single dataset, and pooling might have to be manually implemented according to Ruben's rules.
+# The simulation is, experienced from our derived-variable substudy, not that computationally heavy,
+# and so I think this solution is fine. 
 sim_imp = function(d_missing, target, run = 1){
   
   # find which rows have missing and need imputation
