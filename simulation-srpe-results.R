@@ -90,7 +90,6 @@ for(i in 1:n_sim){
 # the real coefficient is: 0.003
 target_coef = 0.003
 d_fit_estimates_srpe = d_fit_estimates %>% 
-  filter(method != "No Imputation") %>% 
   mutate(target_est = target_coef) %>% 
   filter(term == "srpe")
 
