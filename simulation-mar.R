@@ -192,6 +192,67 @@ d_mar1 = add_mar_rpe(d_exdata_mar, "light")
 sim_impfit(d_mar1, target_param, 1)
 
 
+# The first helper function outputs model fit estimated parameters
+# we also want the imputed values as is
+
+# function for adding the target srpe values
+# to an imputed dataset
+add_target_imp = function(d, imp_rows_pos, target, method){
+  d = d %>% rownames_to_column() %>%
+    mutate(imp_place = ifelse(rowname %in% imp_rows_pos, 1, 0),
+           target = target,
+           method = method) %>%
+    dplyr::select(method, imp_place, rpe, duration, srpe, target)
+  d
+}
+
+# create function based on all this
+sim_imp = function(d_missing, target, run = 1){
+  
+  # find which rows have missing and need imputation
+  imp_rows_pos = which(is.na(d_missing$rpe) | is.na(d_missing$duration))
+  
+  #-----------------impute using all the different methods
+  # Mean imputation by the mean per player
+  d.mean.p_id = impute_mean(d_missing, p_id)
+  
+  # Mean imputation by the mean per week
+  d.mean.week = impute_mean(d_missing, week_nr)
+  
+  # Regression imputation
+  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
+  d.reg = mice::complete(mids.reg, "long", include = FALSE) %>% mutate(srpe = rpe*duration)
+  
+  # Multiple imputation with predicted mean matching, and the Impute, then transform strategy
+  mids.pmm = mice(d_missing, print = FALSE, seed = 1234)
+  imp.pmm = mice::complete(mids.pmm, "long", include = TRUE)
+  imp.pmm$srpe = with(imp.pmm, rpe*duration)
+  mids.itt.pmm = as.mids(imp.pmm)
+  
+  # complete case analysis
+  d.cc = na.omit(d_missing) %>% mutate(srpe = rpe*duration)
+  
+  # add column of which row was imputed
+  d.mean.p_id = d.mean.p_id %>% add_target_imp(., imp_rows_pos, target = target, method = "Mean Imputation - Mean per player")
+  d.mean.week = d.mean.week %>% add_target_imp(., imp_rows_pos, target = target, method = "Mean Imputation - Mean per week")
+  d.reg = d.reg %>% add_target_imp(., imp_rows_pos, target = target, method = "Regression Imputation")
+  d.pmm = mice::complete(mids.itt.pmm, "all") %>%
+          map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Multiple Imputation")) %>%
+          imap(., ~mutate(., dataset_n = .y)) %>% # a column for which dataset number, as multiple imputation imputes multiple
+          bind_rows() %>% filter(dataset_n != 0) #unimputed dataset is included in the ITT method
+  d.cc = d.cc %>% mutate(method = "Complete Case Analysis") %>% dplyr::select(method, rpe, duration, srpe)
+  
+  # combine to 1 dataset
+  d_imp = bind_rows(d.mean.p_id, d.mean.week, d.reg, d.pmm, d.cc) %>% tibble()
+  d_imp
+}
+
+# fetch our original sRPE column, which is our original, true value, and we aim to target it
+target_col = d_srpe$srpe
+
+sim_imp(d_mcar_80, target_col)
+d_mcar_80 %>% mutate(missing_del)
+
 
 #------------------------------------------------------Step-by-step process of the simulation below-------------------------------------------------
 # Either for understanding or troubleshooting, 
