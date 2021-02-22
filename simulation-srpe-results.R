@@ -84,3 +84,25 @@ for(i in 1:n_sim){
   temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_fits_mar_",.,".rds"))) %>% bind_rows()
   d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
 }
+
+# comparing estimates to target estimate, the estimate from fitting a logistic regression
+# using target coefficient is ideal
+# the real coefficient is: 0.003
+target_coef = 0.003
+d_fit_estimates_srpe = d_fit_estimates %>% 
+  filter(method != "No imputation") %>% 
+  mutate(target_est = target_coef) %>% 
+  filter(term == "srpe")
+
+perf_estimates_targetcoef = d_fit_estimates_srpe %>% 
+  group_by(method, missing_type, missing_amount) %>% 
+  summarise(rb = raw_bias(estimate, target_est),
+            pb = percent_bias(estimate, target_est),
+            rmse = rmse(estimate, target_est),
+            coverage = coverage(CI_low, CI_high, target_est, n()),
+            average_width = average_width(CI_low, CI_high),
+            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
+            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
+
+
