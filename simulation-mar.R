@@ -185,7 +185,7 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 # would require more complicated programming. We would have to run fits on lists of data instead of
 # a single dataset, and pooling might have to be manually implemented according to Ruben's rules.
 # The simulation is, experienced from our derived-variable substudy, not that computationally heavy,
-# and so I think this solution is fine. 
+# and so I think this solution is fine, although it breaks the DRY (Do-not-Repeat-Yourself) Principle.
 sim_imp = function(d_missing, target, run = 1){
   
   # find which rows have missing and need imputation
