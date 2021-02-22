@@ -113,7 +113,7 @@ write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_srpe.csv", d
 
 # where the imputed datasets are saved
 folder_da_imps = paste0(base_folder, "srpe_imps\\")
-
+n_sim= 5
 # we assume it is the same number of simulations for both simulations
 # reading the simulated imputation datasets
 files_da_imps = list.files(path = folder_da_imps)
