@@ -124,13 +124,13 @@ for(i in 1:n_sim){
   d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
 }
 
-perf_esimates_impvalues = d_imp %>% filter(imp_place == 1) %>% 
-  group_by(method) %>% 
+perf_esimates_impvalues = d_imp %>% filter(method != "Complete Case Analysis", imp_place == 1) %>% 
+  group_by(missing_type, missing_amount, method) %>% 
   summarise(rb = raw_bias(srpe, target),
             pb = percent_bias(srpe, target),
             rmse = rmse(srpe, target),
-            mcse_rmse = mcse_rmse(srpe, target, runs)) %>% 
-  arrange(rmse)
+            mcse_rmse = mcse_rmse(srpe, target, n_sim)) %>% 
+  arrange(missing_type, missing_amount, rmse)
 
 ## TODO visualize imputations
 # densityplot_itt = densityplot(x=imp.itt, data = ~srpe)
