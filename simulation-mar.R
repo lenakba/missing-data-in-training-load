@@ -226,6 +226,8 @@ sim_imp = function(d_missing, target, run = 1){
   d_imp
 }
 
+###############Data Preparation
+
 # create fake injuries
 d_srpe = d_srpe %>% 
   mutate(inj_prop = inj_probability_srpe(srpe), 
@@ -252,6 +254,8 @@ d_exdata_mar = d_exdata_srpe %>%
 
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
 target_col = d_srpe$srpe
+
+#####################For-loop simulation
 
 # performing simulations with n runs
 # the warnings are caused by collinearity between the variables
@@ -443,7 +447,7 @@ fit.reg =  fit_glm(d.reg)
 fit.pmm =  with(mids.itt.pmm, glm(injury ~ srpe, family = binomial))
 fit.cc =  fit_glm(d.cc)
 
-#----------------------------------------------------Step 6 fetch parameters
+#----------------------------------------------------Step 5 fetch parameters
 
 # function for obtaining parameters from any model fit
 # specify method for a column with the model-type
