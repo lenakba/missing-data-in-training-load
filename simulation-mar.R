@@ -185,7 +185,7 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 # would require more complicated programming. We would have to run fits on lists of data instead of
 # a single dataset, and pooling might have to be manually implemented according to Ruben's rules.
 # The simulation is, experienced from our derived-variable substudy, not that computationally heavy,
-# and so I think this solution is fine, although it breaks the DRY (Do-not-Repeat-Yourself) Principle.
+# and so I think this solution is fine, although it breaks the Do-not-Repeat-Yourself (DRY) Principle.
 sim_imp = function(d_missing, target, run = 1){
   
   # find which rows have missing and need imputation
@@ -257,6 +257,7 @@ target_col = d_srpe$srpe
 d_mcar_80 = add_mcar_rpe(d_exdata_srpe, 0.8)
 sim_impfit(d_mcar_80, target_param, 1)
 sim_imp(d_mcar_80, target_col, 1)
+
 d_mar1 = add_mar_rpe(d_exdata_mar, "light")
 sim_impfit(d_mar1, target_param, 1)
 sim_imp(d_mar1, target_col, 1)
