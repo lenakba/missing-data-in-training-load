@@ -253,6 +253,13 @@ d_exdata_mar = d_exdata_srpe %>%
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
 target_col = d_srpe$srpe
 
+# performing simulations with n runs
+# the warnings are caused by collinearity between the variables
+# which is expected
+base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+folder_srpe_fits = paste0(base_folder, "srpe_fits\\")
+folder_srpe_imps = paste0(base_folder, "srpe_imps\\")
+
 # this is what will go in the for-loop:
 d_mcar_80 = add_mcar_rpe(d_exdata_srpe, 0.8)
 sim_impfit(d_mcar_80, target_param, 1)
@@ -261,6 +268,37 @@ sim_imp(d_mcar_80, target_col, 1)
 d_mar1 = add_mar_rpe(d_exdata_mar, "light")
 sim_impfit(d_mar1, target_param, 1)
 sim_imp(d_mar1, target_col, 1)
+
+# helper function for performing all needed simulations
+# given a missing type (missing), either "mcar" or "mar"
+# and amount of missing, a proportion for mcar or "light"/"medium"/"strong" for mar
+sim_impute = function(missing, missing_amount, rep){
+  
+  if(missing == "mcar"){
+  d_mcar = add_mcar_rpe(d_exdata_srpe, missing_amount)
+  d_sim_fits_mcar = sim_impfit(d_mcar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  saveRDS(d_sim_fits_mcar, file=paste0(folder_srpe_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds"))  
+  d_sim_imps_mcar = sim_imp(d_mcar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  saveRDS(d_sim_imps_mcar, file=paste0(folder_srpe_imps, rep,"_d_srpe_imps_", missing, "_", missing_amount,".rds"))
+  
+  } else if(missing == "mar"){
+  d_mar = add_mar_rpe(d_exdata_mar, missing_amount)
+  d_sim_fits_mar = sim_impfit(d_mar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  saveRDS(d_sim_fits_mar, file=paste0(folder_srpe_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds")) 
+  d_sim_imps_mar = sim_imp(d_mar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  saveRDS(d_sim_imps_mar, file=paste0(folder_srpe_imps, rep,"_d_srpe_imps_", missing, "_", missing_amount,".rds"))
+  }
+}
+
+options(warn=-1)
+set.seed = 1234
+runs = 3
+for(i in 1:runs) {
+  sim_impute("mcar", 0.2, rep = i) 
+  sim_impute("mcar", 0.8, rep = i) 
+  sim_impute("mar", "light", rep = i)
+}
+options(warn=0)
 
 #------------------------------------------------------Step-by-step process of the simulation below-------------------------------------------------
 # Either for understanding or troubleshooting, 
