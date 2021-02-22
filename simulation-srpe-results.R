@@ -64,11 +64,10 @@ average_width = function(ci_low, ci_high){
 }
 
 
-#--------------------------------Read data and calculate performance measures
+#--------------------------------Read data and calculate performance measures on model fits
 
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
 folder_da_fits = paste0(base_folder, "srpe_fits\\")
-folder_da_imps = paste0(base_folder, "srpe_imps\\")
 
 # vector of chosen missing proportions
 # if we ever want to change it or add more proportions, easily done here.
@@ -109,3 +108,36 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
 # write_delim is preferable, but write_excel_csv is required for excel to understand
 # that the file encoding is UTF-8
 write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_srpe.csv", delim = ";", na = "")
+
+#--------------------------------Read data and calculate performance measures on the raw data
+
+# where the imputed datasets are saved
+folder_da_imps = paste0(base_folder, "srpe_imps\\")
+
+# we assume it is the same number of simulations for both simulations
+# reading the simulated imputation datasets
+files_da_imps = list.files(path = folder_da_imps)
+d_imp = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_imps_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_imps_mar_",.,".rds"))) %>% bind_rows()
+  d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
+}
+
+perf_esimates_impvalues = d_imp %>% filter(imp_place == 1) %>% 
+  group_by(method) %>% 
+  summarise(rb = raw_bias(srpe, target),
+            pb = percent_bias(srpe, target),
+            rmse = rmse(srpe, target),
+            mcse_rmse = mcse_rmse(srpe, target, runs)) %>% 
+  arrange(rmse)
+
+## TODO visualize imputations
+# densityplot_itt = densityplot(x=imp.itt, data = ~srpe)
+# densityplot_jav = densityplot(x=imp.jav, data = ~srpe)
+# densityplot_pas = densityplot(x=imp.pas, data = ~srpe)
+# densityplot_id = densityplot(x=imp.id, data = ~srpe)
+
+# xyplot(imp.itt, injury ~ srpe)
+
+# nested-loop-plot?
