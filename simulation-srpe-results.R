@@ -119,8 +119,8 @@ folder_da_imps = paste0(base_folder, "srpe_imps\\")
 files_da_imps = list.files(path = folder_da_imps)
 d_imp = data.frame()
 for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_imps_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_imps_mar_",.,".rds"))) %>% bind_rows()
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_da_imps, i,"_d_srpe_imps_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_da_imps, i,"_d_srpe_imps_mar_",.,".rds"))) %>% bind_rows()
   d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
 }
 
