@@ -161,37 +161,6 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   d_fits
 }
 
-# we create fake injuries
-d_srpe = d_srpe %>% 
-  mutate(inj_prop = inj_probability_srpe(srpe), 
-         injury = rbinom(length(inj_prop), 1, prob = inj_prop))
-
-# logistic regression for comparison
-fit.target = glm(injury ~ srpe, family = "binomial", data = d_srpe)
-target_param = get_params(fit.target, "No Imputation")  
-
-# remove variables we in theory wouldn't know about
-# in a real life situation
-d_exdata_srpe = d_srpe %>% dplyr::select(-inj_prop, -srpe)
-
-# for missing at random, we create fake variables with correlation to the amount of missing
-# we add fake age and sex, and we use the day of the week to determine weekend
-# we'll use these variables to create Missing at Random
-srpe_p_id = d_srpe %>% distinct(p_id) 
-srpe_id_base = srpe_p_id %>% mutate(age = sample(18:30, length(srpe_p_id$p_id), replace = TRUE),
-                                    sex = sample(0:1, length(srpe_p_id$p_id), replace = TRUE))
-d_exdata_mar = d_exdata_srpe %>% 
-  left_join(srpe_id_base, by = "p_id") %>% 
-  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0),
-         match = ifelse(mc_day == "M", 1, 0))
-
-# this is what will go in the for-loop:
-d_mcar_80 = add_mcar_rpe(d_exdata_srpe, 0.8)
-sim_impfit(d_mcar_80, target_param, 1)
-d_mar1 = add_mar_rpe(d_exdata_mar, "light")
-sim_impfit(d_mar1, target_param, 1)
-
-
 # The first helper function outputs model fit estimated parameters
 # we also want the imputed values as is
 
@@ -206,7 +175,8 @@ add_target_imp = function(d, imp_rows_pos, target, method){
   d
 }
 
-# create function based on all this
+# helper function that imputes using all methods and outputs the
+# data with the target srpe we wish to compare
 sim_imp = function(d_missing, target, run = 1){
   
   # find which rows have missing and need imputation
@@ -239,7 +209,7 @@ sim_imp = function(d_missing, target, run = 1){
   d.pmm = mice::complete(mids.itt.pmm, "all") %>%
           map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Multiple Imputation")) %>%
           imap(., ~mutate(., dataset_n = .y)) %>% # a column for which dataset number, as multiple imputation imputes multiple
-          bind_rows() %>% filter(dataset_n != 0) #unimputed dataset is included in the ITT method
+          bind_rows() %>% filter(dataset_n != 0) # unimputed dataset is included in the ITT method, we remove this
   d.cc = d.cc %>% mutate(method = "Complete Case Analysis") %>% dplyr::select(method, rpe, duration, srpe)
   
   # combine to 1 dataset
@@ -247,12 +217,40 @@ sim_imp = function(d_missing, target, run = 1){
   d_imp
 }
 
+# create fake injuries
+d_srpe = d_srpe %>% 
+  mutate(inj_prop = inj_probability_srpe(srpe), 
+         injury = rbinom(length(inj_prop), 1, prob = inj_prop))
+
+# logistic regression for comparison
+fit.target = glm(injury ~ srpe, family = "binomial", data = d_srpe)
+target_param = get_params(fit.target, "No Imputation")  
+
+# remove variables we in theory wouldn't know about
+# in a real life situation
+d_exdata_srpe = d_srpe %>% dplyr::select(-inj_prop, -srpe)
+
+# for missing at random, we create fake variables with correlation to the amount of missing
+# we add fake age and sex, and we use the day of the week to determine weekend
+# we'll use these variables to create Missing at Random
+srpe_p_id = d_srpe %>% distinct(p_id) 
+srpe_id_base = srpe_p_id %>% mutate(age = sample(18:30, length(srpe_p_id$p_id), replace = TRUE),
+                                    sex = sample(0:1, length(srpe_p_id$p_id), replace = TRUE))
+d_exdata_mar = d_exdata_srpe %>% 
+  left_join(srpe_id_base, by = "p_id") %>% 
+  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0),
+         match = ifelse(mc_day == "M", 1, 0))
+
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
 target_col = d_srpe$srpe
 
-sim_imp(d_mcar_80, target_col)
-d_mcar_80 %>% mutate(missing_del)
-
+# this is what will go in the for-loop:
+d_mcar_80 = add_mcar_rpe(d_exdata_srpe, 0.8)
+sim_impfit(d_mcar_80, target_param, 1)
+sim_imp(d_mcar_80, target_col, 1)
+d_mar1 = add_mar_rpe(d_exdata_mar, "light")
+sim_impfit(d_mar1, target_param, 1)
+sim_imp(d_mar1, target_col, 1)
 
 #------------------------------------------------------Step-by-step process of the simulation below-------------------------------------------------
 # Either for understanding or troubleshooting, 
