@@ -67,14 +67,20 @@ average_width = function(ci_low, ci_high){
 #--------------------------------Read data and calculate performance measures
 
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_da_fits = paste0(base_folder, "derived_var_fits\\")
-folder_da_imps = paste0(base_folder, "derived_var_imps\\")
+folder_da_fits = paste0(base_folder, "srpe_fits\\")
+folder_da_imps = paste0(base_folder, "srpe_imps\\")
+
+# vector of chosen missing proportions
+# if we ever want to change it or add more proportions, easily done here.
+missing_prop_mcar = c(0.05, 0.1, 0.2, 0.4, 0.6, 0.8)
+missing_prop_mar = c("light", "medium", "strong")
 
 # reading the simulated results from fits
 files_da_fits = list.files(path = folder_da_fits)
-runs = length(files_da_fits)
+n_sim = length(files_da_fits)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
 d_fit_estimates = data.frame()
-for(i in 1:runs){
-  temp_data = readRDS(paste0(folder_da_fits, i,"_d_derived_var_fits.rds"))
-  d_fit_estimates = rbind(d_fit_estimates, temp_data)
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
 }
