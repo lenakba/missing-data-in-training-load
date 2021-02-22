@@ -90,7 +90,7 @@ for(i in 1:n_sim){
 # the real coefficient is: 0.003
 target_coef = 0.003
 d_fit_estimates_srpe = d_fit_estimates %>% 
-  filter(method != "No imputation") %>% 
+  filter(method != "No Imputation") %>% 
   mutate(target_est = target_coef) %>% 
   filter(term == "srpe")
 
@@ -103,6 +103,10 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
             average_width = average_width(CI_low, CI_high),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
+  arrange(missing_type, missing_amount, rb) %>% ungroup()
 
-
+# save to csv
+# save results
+# write_delim is preferable, but write_excel_csv is required for excel to understand
+# that the file encoding is UTF-8
+write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_srpe.csv", delim = ";", na = "")
