@@ -260,18 +260,10 @@ base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulatio
 folder_srpe_fits = paste0(base_folder, "srpe_fits\\")
 folder_srpe_imps = paste0(base_folder, "srpe_imps\\")
 
-# this is what will go in the for-loop:
-d_mcar_80 = add_mcar_rpe(d_exdata_srpe, 0.8)
-sim_impfit(d_mcar_80, target_param, 1)
-sim_imp(d_mcar_80, target_col, 1)
-
-d_mar1 = add_mar_rpe(d_exdata_mar, "light")
-sim_impfit(d_mar1, target_param, 1)
-sim_imp(d_mar1, target_col, 1)
-
 # helper function for performing all needed simulations
 # given a missing type (missing), either "mcar" or "mar"
 # and amount of missing, a proportion for mcar or "light"/"medium"/"strong" for mar
+# not that the datasets have to be ready beforehand, this is NOT a general function
 sim_impute = function(missing, missing_amount, rep){
   
   if(missing == "mcar"){
@@ -290,13 +282,19 @@ sim_impute = function(missing, missing_amount, rep){
   }
 }
 
+# vector of chosen missing proportions
+# if we ever want to change it or add more proportions, easily done here.
+missing_prop_mcar = c(0.05, 0.1, 0.2, 0.4, 0.6, 0.8)
+missing_prop_mar = c("light", "medium", "strong")
+
 options(warn=-1)
 set.seed = 1234
-runs = 3
-for(i in 1:runs) {
-  sim_impute("mcar", 0.2, rep = i) 
-  sim_impute("mcar", 0.8, rep = i) 
-  sim_impute("mar", "light", rep = i)
+n_sim = 3
+for(i in 1:n_sim) {
+  # walk will run the function for each missing proportion in the vector
+  # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
 }
 options(warn=0)
 
@@ -498,8 +496,7 @@ d_exdata_td = d_td %>% dplyr::select(-inj_prop)
 
 
 
-# vector of chosen missing proportions
-missing_prop_v = c(0.05, 0.1, 0.2, 0.4, 0.6, 0.8)
+
 
 #-------------------------MCAR
 
