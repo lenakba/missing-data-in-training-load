@@ -215,11 +215,15 @@ sim_imp = function(d_missing, target, run = 1){
   d.mean.p_id = d.mean.p_id %>% add_target_imp(., imp_rows_pos, target = target, method = "Mean Imputation - Mean per player")
   d.mean.week = d.mean.week %>% add_target_imp(., imp_rows_pos, target = target, method = "Mean Imputation - Mean per week")
   d.reg = d.reg %>% add_target_imp(., imp_rows_pos, target = target, method = "Regression Imputation")
+  
+  # since multiple imputation has 5 datasets, the column is added to a list of datasets
   d.pmm = mice::complete(mids.itt.pmm, "all") %>%
           map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Multiple Imputation")) %>%
           imap(., ~mutate(., dataset_n = .y)) %>% # a column for which dataset number, as multiple imputation imputes multiple
           bind_rows() %>% filter(dataset_n != 0) # unimputed dataset is included in the ITT method, we remove this
-  d.cc = d.cc %>% mutate(method = "Complete Case Analysis") %>% dplyr::select(method, rpe, duration, srpe)
+ 
+   # target column can't be added to complete case analysis, because they've been listwise deleted
+   d.cc = d.cc %>% mutate(method = "Complete Case Analysis") %>% dplyr::select(method, rpe, duration, srpe)
   
   # combine to 1 dataset
   d_imp = bind_rows(d.mean.p_id, d.mean.week, d.reg, d.pmm, d.cc) %>% tibble()
