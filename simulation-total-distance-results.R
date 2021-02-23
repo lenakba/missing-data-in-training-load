@@ -37,7 +37,7 @@ for(i in 1:n_sim){
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
 # using target coefficient is ideal
 # the real coefficient is: 0.003
-target_coef = 0.003
+target_coef = 0.0003
 d_fit_estimates_td = d_fit_estimates %>% 
   mutate(target_est = target_coef) %>% 
   filter(term == "td")
