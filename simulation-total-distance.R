@@ -17,7 +17,9 @@ d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td
 # remove missing
 # select vars we need in the simulation, key variables we think are correlated with the level of total distance
 keyvars = c("p_id", "training_date", "mc_day", "week_nr")
-d_td = d_td_full %>% filter(!is.na(total_distance_daily)) %>% select(all_of(keyvars), td = total_distance_daily, srpe)
+d_td = d_td_full %>% 
+       filter(!is.na(total_distance_daily)) %>% 
+       select(all_of(keyvars), td = total_distance_daily, srpe, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
 
 #------------------------------------------Simulation
 # we have all functions needed for performing the simulation in this section
@@ -258,16 +260,16 @@ sim_impute = function(missing, missing_amount, rep){
   if(missing == "mcar"){
     d_mcar = add_mcar_td(d_exdata_td, missing_amount)
     d_sim_fits_mcar = sim_impfit(d_mcar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_fits_mcar, file=paste0(folder_srpe_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds"))  
+    saveRDS(d_sim_fits_mcar, file=paste0(folder_srpe_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds"))  
     d_sim_imps_mcar = sim_imp(d_mcar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_imps_mcar, file=paste0(folder_srpe_imps, rep,"_d_srpe_imps_", missing, "_", missing_amount,".rds"))
+    saveRDS(d_sim_imps_mcar, file=paste0(folder_srpe_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
     
   } else if(missing == "mar"){
     d_mar = add_mar_td(d_exdata_mar, missing_amount)
     d_sim_fits_mar = sim_impfit(d_mar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_fits_mar, file=paste0(folder_srpe_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds")) 
+    saveRDS(d_sim_fits_mar, file=paste0(folder_srpe_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds")) 
     d_sim_imps_mar = sim_imp(d_mar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_imps_mar, file=paste0(folder_srpe_imps, rep,"_d_srpe_imps_", missing, "_", missing_amount,".rds"))
+    saveRDS(d_sim_imps_mar, file=paste0(folder_srpe_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
   }
 }
 
