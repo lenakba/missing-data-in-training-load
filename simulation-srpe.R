@@ -11,14 +11,12 @@ options(scipen = 17,
 # reading data
 folder_data = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
 
-# note that the Total Distance data is per day, the RPE data is per session (which there can be multiple of per day)
-d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td_anon.csv"), delim = ";")
+# note that the RPE data is per session (which there can be multiple of per day)
 d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";")
 
 # remove missing
-# select vars we need in the simulation, key variables we think are correlated with the level of sRPE and total distance
+# select vars we need in the simulation, key variables we think are correlated with the level of sRPE
 keyvars = c("p_id", "training_date", "mc_day", "week_nr")
-d_td = d_td_full %>% filter(!is.na(total_distance_daily)) %>% select(all_of(keyvars), td = total_distance_daily, srpe) 
 d_srpe = d_rpe_full %>% filter(!is.na(rpe) & !is.na(duration)) %>% select(all_of(keyvars), rpe, duration) %>% mutate(srpe = rpe*duration)
 
 #------------------------------------------Simulation
@@ -478,68 +476,3 @@ tab4 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)
 tab5 = get_params(fit.cc, "Complete Case Analysis")  
 
 d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5)
-
-#----------------------------------------Same for Total distance
-
-
-# linear logistic regression function
-inj_probability_td = function(td){
-  y = log_reg(-2 + 0.0003*td) 
-  y
-}
-
-
-
-
-d_td = d_td %>% 
-  mutate(inj_prop = inj_probability_td(td), 
-         injury = rbinom(length(inj_prop), 1, prob = inj_prop))
-
-d_exdata_td = d_td %>% dplyr::select(-inj_prop)
-
-
-
-
-
-
-
-
-
-
-#-------------------------MCAR
-
-# list with multiple datasets we add missing to
-l_td = list(d_td, d_td, d_td, d_td, d_td, d_td)
-l_srpe = list(d_srpe, d_srpe, d_srpe, d_srpe, d_srpe, d_srpe)
-
-# function for adding missing completely at random with user's choice of proportion missing
-set.seed(123)
-add_mcar = function(d, missing_prop){
-  n_values = nrow(d)
-  random_spots = sample(1:n_values, round(missing_prop*n_values))
-  d = d %>% mutate(load = ifelse(rowname %in% random_spots, NA, load),
-                   missing_type = "MCAR",
-                   missing_amount = missing_prop)
-  d
-}
-
-# use map2 to map each dataset with each element in vector missing_prop_v
-l_td = l_td %>% map2(.x =., .y = missing_prop_v, ~add_mcar(.x, .y))
-d_srpe = d_srpe %>% map2(.x =., .y = missing_prop_v, ~add_mcar(.x, .y))
-
-#------------------------MAR
-
-# logistic function
-log_reg = function(tl_coef){
-  res = 1 / (1 + exp(-tl_coef))
-  res
-}
-
-# linear logistic regression function
-mar_function = function(age, sex, weekend){
-  y = log_reg(0.005 + (0.03*age) + (0.02*sex) + (0.3*weekend))
-  y
-}
-
-
-
