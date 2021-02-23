@@ -36,7 +36,9 @@ d_gps_full = dbGetQuery(db_stromsgodset,
                         paste0("SELECT *
                   FROM training_data_2019.training_data")) %>% as_tibble()
 
-d_td_full = d_gps_full %>% select(player_id, dt, datekey, session_id, total_distance, injury_id)
+vars = c("player_id", "datekey")
+gps_vars = c("total_distance", "v4_distance", "v5_distance", "player_load")
+d_td_full = d_gps_full %>% select(all_of(vars), dt, session_id, all_of(gps_vars), injury_id)
 remove(d_gps_full)
 
 #-------------------------------------------- Step 2: Remove ostensibly erroneous GPS data at the second level (this becomes part of missing data)
@@ -66,8 +68,12 @@ adjust_outliers = function(x){
 }
 
 # perform removal and adjustment
-d_td = d_td_full %>% mutate(total_distance = remove_impossible(total_distance))
-d_td = d_td %>% mutate(total_distance = adjust_outliers(total_distance))
+d_td = d_td_full %>% mutate(total_distance = remove_impossible(total_distance),
+                            v4_distance = remove_impossible(v4_distance),
+                            v5_distance = remove_impossible(v5_distance))
+d_td = d_td %>% mutate(total_distance = adjust_outliers(total_distance),
+                       v4_distance = adjust_outliers(v4_distance),
+                       v5_distance = adjust_outliers(v5_distance))
 
 
 #to calculate the number of values removed and changed from this process
@@ -78,7 +84,11 @@ calc_n_change = function(x){
   d_remove
 }
 
-d_n_cleaned = bind_rows(calc_n_change(d_td_full$total_distance)) %>% mutate(label = "Total Distance")
+d_n_cleaned = bind_rows(calc_n_change(d_td_full$total_distance),
+                        calc_n_change(d_td_full$v4_distance),
+                        calc_n_change(d_td_full$v5_distance),
+                        calc_n_change(d_td_full$player_load)) %>%
+  mutate(label = c("Total Distance", "V4 Distance", "V5 Distance", "Player Load"))
 
 #--------------------------------------------------------- Step 3: Remove ostensibly erroneous GPS data at the daily level
 
@@ -90,14 +100,18 @@ d_duration = d_td %>%
 
 # we will calculate the total distance per person per day
 # then validate the TD by dividing it by the sum of minutes in activity 
-vars = c("player_id", "datekey")
-d_td_daily = d_duration  %>% select(all_of(vars), total_distance, sum_minutes) %>%  
+d_td_daily = d_duration  %>% select(all_of(vars), all_of(gps_vars), sum_minutes) %>%  
   group_by(player_id, datekey) %>% 
-  mutate(total_distance_daily = sum(total_distance, na.rm = TRUE)) %>% 
+  mutate(total_distance_daily = sum(total_distance, na.rm = TRUE),
+         v4_distance_daily = sum(v4_distance, na.rm = TRUE),
+         v5_distance_daily = sum(v5_distance, na.rm = TRUE),
+         player_load_daily = sum(player_load, na.rm = TRUE)) %>% 
   distinct(player_id, datekey, .keep_all = TRUE) %>% 
   # if the player has 0 sum minutes, they have 0 TD
   mutate(total_distance_daily = ifelse(sum_minutes == 0, 0, total_distance_daily),
-         total_distance_minute = total_distance_daily/sum_minutes) %>% ungroup() %>% select(-total_distance)
+         total_distance_minute = total_distance_daily/sum_minutes) %>% 
+  ungroup() %>% 
+  select(-all_of(gps_vars))
 
 # it doesnt look like anyone has overly large TD values:
 nrow(d_td_daily %>% filter(total_distance_daily < 100 & total_distance_daily != 0))
@@ -106,6 +120,9 @@ nrow(d_td_daily %>% filter(total_distance_daily < 100 & total_distance_daily != 
 # if total distance is less than 100m a day
 # we assume it is an error and set it to missing
 d_td_daily = d_td_daily %>% mutate(total_distance_daily = ifelse(total_distance_daily < 100, NA, total_distance_daily))
+
+# remove the gps data with millions of rows from the r-environment
+remove(d_td)
 
 #---------------------------------------------------------------------Step 4: Obtain RPE data
 d_srpe_full = dbGetQuery(db_stromsgodset, 
@@ -233,6 +250,9 @@ d_load = d_player_gps_dt %>% full_join(d_srpe_daily, by = c("player_id", "traini
 # days that are M+1 or M+2 are sRPE = 0 and total_distance = 0
 d_load  = d_load %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe),
                             total_distance_daily = ifelse(is.na(total_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_daily),
+                            v4_distance_daily = ifelse(is.na(v4_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, v4_distance_daily),
+                            v5_distance_daily = ifelse(is.na(v5_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, v5_distance_daily),
+                            player_load_daily = ifelse(is.na(player_load_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, player_load_daily),
                             total_distance_minute = ifelse(is.na(total_distance_minute) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_minute))
 
 # validation checks
@@ -288,6 +308,9 @@ d_load_full_dt = d_load_full %>% select(-all_of(date_infovars)) %>% left_join(d_
 # days that are M+1 or M+2 are sRPE = 0 and total_distance = 0
 d_load_full_dt = d_load_full_dt %>% mutate(srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe),
                            total_distance_daily = ifelse(is.na(total_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_daily),
+                           v4_distance_daily = ifelse(is.na(v4_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, v4_distance_daily),
+                           v5_distance_daily = ifelse(is.na(v5_distance_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, v5_distance_daily),
+                           player_load_daily = ifelse(is.na(player_load_daily) & (mc_day == "M+2" | mc_day == "M+1"), 0, player_load_daily),
                            total_distance_minute = ifelse(is.na(total_distance_minute) & (mc_day == "M+2" | mc_day == "M+1"), 0, total_distance_minute))
 
 # now find implicit missing
@@ -345,7 +368,7 @@ d_srpe_anon = d_srpe_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
 # select wanted columns in the order that we want them
 shared_vars = c("p_id", "training_date", "day_of_week", "mc_day", "week_nr")
-d_load_final = d_load_anon %>% select(all_of(shared_vars), srpe, total_distance_daily, starts_with("missing"))
+d_load_final = d_load_anon %>% select(all_of(shared_vars), srpe, ends_with("daily"), starts_with("missing"))
 d_srpe_final = d_srpe_anon %>% select(all_of(shared_vars), rpe, duration, starts_with("missing"))
 
 # where to place the saved data
