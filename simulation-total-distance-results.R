@@ -49,6 +49,7 @@ perf_estimates_targetcoef = d_fit_estimates_td %>%
             rmse = rmse(estimate, target_est),
             coverage = coverage(CI_low, CI_high, target_est, n()),
             average_width = average_width(CI_low, CI_high),
+            power = power(p, n()),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
   arrange(missing_type, missing_amount, rb) %>% ungroup()
