@@ -279,7 +279,7 @@ missing_prop_mar = c("light", "medium", "strong")
 options(warn=-1)
 set.seed = 1234
 n_sim = 100
-for(i in 4:n_sim){
+for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
   missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
