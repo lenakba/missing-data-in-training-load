@@ -5,6 +5,8 @@
 #--------------------------------Functions for calculating performance measures
 # functions for easily calculating certain performance parameters
 # needs vectors of estimates and target value
+
+# amount of bias toward a target estimate
 raw_bias = function(estimate, target){
   mean(estimate - target)
 }
@@ -13,6 +15,7 @@ percent_bias = function(estimate, target){
   mean(100*((estimate - target)/target))
 }
 
+# Root-mean-squared-error
 rmse = function(estimate, target){
   sqrt(mean((estimate - target)^2)) 
 }
@@ -35,6 +38,7 @@ mcse_rmse = function(estimate, target, nsim){
   mcse
 }
 
+# coverage = % confidence intervals that overlap with the target estimate
 # coverage requires vectors of low and high confidence intervals and a vector with the target coefficient
 # the denominator is usually the number of values in the vectors
 coverage = function(ci_low, ci_high, target, denominator){
@@ -50,6 +54,14 @@ mcse_coverage = function(ci_low, ci_high, target, denominator, nsim){
   mcse
 }
 
+# average width of confidence intervals
 average_width = function(ci_low, ci_high){
   mean(ci_high-ci_low)
+}
+
+# % power to detect a significant relationship
+power = function(p, denominator){
+  is_sig = ifelse(p <= 0.05, 1, 0)
+  power = 100*(sum(is_sig == 1, na.rm = TRUE)/denominator)
+  power
 }
