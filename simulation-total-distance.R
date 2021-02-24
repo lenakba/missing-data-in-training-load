@@ -118,12 +118,11 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   # Mean imputation by the mean per week
   d.mean.week = impute_mean(d_missing, week_nr)
   
-  # Regression imputation
-  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
-  d.reg = mice::complete(mids.reg, "long", include = FALSE)
+  # Multiple Imputation - Regression imputation
+  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 5, print = FALSE)
   
-  # Multiple imputation with predicted mean matching, and the Impute, then transform strategy
-  mids.pmm = mice(d_missing, print = FALSE, seed = 1234)
+  # Multiple Imputation - Predicted Mean Matching
+  mids.pmm = mice(d_missing, seed = 1234, m = 5, print = FALSE)
   
   # complete case analysis
   d.cc = na.omit(d_missing)
@@ -131,15 +130,15 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   # fit our models
   fit.mean.p_id = fit_glm(d.mean.p_id)
   fit.mean.week = fit_glm(d.mean.week)
-  fit.reg =  fit_glm(d.reg)
+  fit.reg =  with(mids.reg, glm(injury ~ td, family = binomial))
   fit.pmm =  with(mids.pmm, glm(injury ~ td, family = binomial))
   fit.cc =  fit_glm(d.cc)
   
   # fetch model parameters
   tab1 = get_params(fit.mean.p_id, "Mean Imputation - Mean per player")  
   tab2 = get_params(fit.mean.week, "Mean Imputation - Mean per week")  
-  tab3 = get_params(fit.reg, "Regression Imputation")  
-  tab4 = get_params(fit.pmm, "Multiple Imputation", pool = TRUE)  
+  tab3 = get_params(fit.reg, "MI - Regression Imputation", pool = TRUE)  
+  tab4 = get_params(fit.pmm, "MI - PMM", pool = TRUE)  
   tab5 = get_params(fit.cc, "Complete Case Analysis")  
   
   d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5)
@@ -184,12 +183,11 @@ sim_imp = function(d_missing, target, run = 1){
   # Mean imputation by the mean per week
   d.mean.week = impute_mean(d_missing, week_nr)
   
-  # Regression imputation
-  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
-  d.reg = mice::complete(mids.reg, "long", include = FALSE)
-  
-  # Multiple imputation with predicted mean matching, and the Impute, then transform strategy
-  mids.pmm = mice(d_missing, print = FALSE, seed = 1234)
+  # Multiple Imputation - Regression imputation
+  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 5, print = FALSE)
+
+  # Multiple Imputation - Predicted Mean Matching
+  mids.pmm = mice(d_missing, seed = 1234, m = 5, print = FALSE)
   
   # complete case analysis
   d.cc = na.omit(d_missing)
@@ -197,13 +195,17 @@ sim_imp = function(d_missing, target, run = 1){
   # add column of which row was imputed
   d.mean.p_id = d.mean.p_id %>% add_target_imp(., imp_rows_pos, target = target, method = "Mean Imputation - Mean per player")
   d.mean.week = d.mean.week %>% add_target_imp(., imp_rows_pos, target = target, method = "Mean Imputation - Mean per week")
-  d.reg = d.reg %>% add_target_imp(., imp_rows_pos, target = target, method = "Regression Imputation")
-  
+ 
   # since multiple imputation has 5 datasets, the column is added to a list of datasets
-  d.pmm = mice::complete(mids.pmm, "all") %>%
-    map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Multiple Imputation")) %>%
+  d.reg = mice::complete(mids.reg, "all") %>%
+    map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "MI - Regression Imputation")) %>%
     imap(., ~mutate(., dataset_n = .y)) %>% # a column for which dataset number, as multiple imputation imputes multiple
-    bind_rows() %>% filter(dataset_n != 0) # unimputed dataset is included in the ITT method, we remove this
+    bind_rows()
+  
+  d.pmm = mice::complete(mids.pmm, "all") %>%
+    map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "MI - PMM")) %>%
+    imap(., ~mutate(., dataset_n = .y)) %>% # a column for which dataset number, as multiple imputation imputes multiple
+    bind_rows()
   
   # target column can't be added to complete case analysis, because they've been listwise deleted
   d.cc = d.cc %>% mutate(method = "Complete Case Analysis") %>% dplyr::select(method, td)
