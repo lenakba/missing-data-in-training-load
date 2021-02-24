@@ -17,8 +17,7 @@ d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td
 # remove missing
 # select vars we need in the simulation, key variables we think are correlated with the level of total distance
 keyvars = c("p_id", "training_date", "mc_day", "week_nr")
-d_td = d_td_full %>% 
-       filter(!is.na(total_distance_daily)) %>% 
+d_td = na.omit(d_td_full) %>% 
        select(all_of(keyvars), td = total_distance_daily, srpe, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
 
 #------------------------------------------Simulation
