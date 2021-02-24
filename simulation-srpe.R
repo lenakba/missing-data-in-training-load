@@ -19,6 +19,10 @@ d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_r
 keyvars = c("p_id", "training_date", "mc_day", "week_nr")
 d_srpe = d_rpe_full %>% filter(!is.na(rpe) & !is.na(duration)) %>% select(all_of(keyvars), rpe, duration) %>% mutate(srpe = rpe*duration)
 
+# adding a variable for match
+# under the assumption that this is very predictive of sRPE
+d_srpe = d_srpe %>% mutate(match = ifelse(mc_day == "M", 1, 0))
+
 #------------------------------------------Simulation
 # we have all functions needed for performing the simulation in this section
 # if you want to look at each step in the simulation, please start at the section Step 1
@@ -70,7 +74,7 @@ add_mar_rpe = function(d, corr){
                    na_spot_duration = rbinom(length(na_prop), 1, prob = na_prop),
                    rpe = ifelse(na_spot_rpe == 1, NA, rpe),
                    duration = ifelse(na_spot_duration == 1, NA, duration))
-  d %>% dplyr::select(-starts_with("na"), -freeday, -match)
+  d %>% dplyr::select(-starts_with("na"))
 }
 
 # impute mean function which calculates the mean by a chosen grouping variable
@@ -259,8 +263,7 @@ srpe_id_base = srpe_p_id %>% mutate(age = sample(18:30, length(srpe_p_id$p_id), 
                                     sex = sample(0:1, length(srpe_p_id$p_id), replace = TRUE))
 d_exdata_mar = d_exdata_srpe %>% 
   left_join(srpe_id_base, by = "p_id") %>% 
-  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0),
-         match = ifelse(mc_day == "M", 1, 0))
+  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0))
 
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
 target_col = d_srpe$srpe
@@ -303,7 +306,7 @@ missing_prop_mar = c("light", "medium", "strong")
 
 options(warn=-1)
 set.seed = 1234
-n_sim = 100
+n_sim = 1900
 for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)

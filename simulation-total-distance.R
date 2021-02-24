@@ -20,6 +20,10 @@ keyvars = c("p_id", "training_date", "mc_day", "week_nr")
 d_td = na.omit(d_td_full) %>% 
        select(all_of(keyvars), td = total_distance_daily, srpe, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
 
+# adding a variable for match
+# under the assumption that this is very predictive of total distance
+d_td = d_td %>% mutate(match = ifelse(mc_day == "M", 1, 0))
+
 #------------------------------------------Simulation
 # we have all functions needed for performing the simulation in this section
 
@@ -64,7 +68,7 @@ add_mar_td = function(d, corr){
   d = d %>% mutate(na_prop = mar_function(., corr),
                    na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
                    td = ifelse(na_spot_td == 1, NA, td))
-  d %>% dplyr::select(-starts_with("na"), -freeday, -match)
+  d %>% dplyr::select(-starts_with("na"))
 }
 
 # impute mean function which calculates the mean by a chosen grouping variable
@@ -237,8 +241,7 @@ td_id_base = td_p_id %>% mutate(age = sample(18:30, length(td_p_id$p_id), replac
                                     sex = sample(0:1, length(td_p_id$p_id), replace = TRUE))
 d_exdata_mar = d_exdata_td %>% 
   left_join(td_id_base, by = "p_id") %>% 
-  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0),
-         match = ifelse(mc_day == "M", 1, 0))
+  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0))
 
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
 target_col = d_td$td
@@ -281,7 +284,7 @@ missing_prop_mar = c("light", "medium", "strong")
 
 options(warn=-1)
 set.seed = 1234
-n_sim = 100
+n_sim = 1900
 for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
