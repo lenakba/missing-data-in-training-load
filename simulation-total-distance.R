@@ -252,8 +252,8 @@ target_col = d_td$td
 # the warnings are caused by collinearity between the variables
 # which is expected
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_td_fits = paste0(base_folder, "td_fits\\")
-folder_td_imps = paste0(base_folder, "td_imps\\")
+folder_fits = paste0(base_folder, "td_fits\\")
+folder_imps = paste0(base_folder, "td_imps\\")
 
 # helper function for performing all needed simulations
 # given a missing type (missing), either "mcar" or "mar"
@@ -264,16 +264,16 @@ sim_impute = function(missing, missing_amount, rep){
   if(missing == "mcar"){
     d_mcar = add_mcar_td(d_exdata_td, missing_amount)
     d_sim_fits_mcar = sim_impfit(d_mcar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_fits_mcar, file=paste0(folder_td_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds"))  
+    saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds"))  
     d_sim_imps_mcar = sim_imp(d_mcar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_imps_mcar, file=paste0(folder_td_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
+    saveRDS(d_sim_imps_mcar, file=paste0(folder_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
     
   } else if(missing == "mar"){
     d_mar = add_mar_td(d_exdata_mar, missing_amount)
     d_sim_fits_mar = sim_impfit(d_mar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_fits_mar, file=paste0(folder_td_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds")) 
+    saveRDS(d_sim_fits_mar, file=paste0(folder_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds")) 
     d_sim_imps_mar = sim_imp(d_mar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_imps_mar, file=paste0(folder_td_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
+    saveRDS(d_sim_imps_mar, file=paste0(folder_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
   }
 }
 

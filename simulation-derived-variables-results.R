@@ -17,15 +17,15 @@ source("performance-measure-functions.R", encoding = "UTF-8")
 #--------------------------------Read data and calculate performance measures
 
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_da_fits = paste0(base_folder, "derived_var_fits\\")
-folder_da_imps = paste0(base_folder, "derived_var_imps\\")
+folder_fits = paste0(base_folder, "derived_var_fits\\")
+folder_imps = paste0(base_folder, "derived_var_imps\\")
 
 # reading the simulated results from fits
-files_da_fits = list.files(path = folder_da_fits)
-runs = length(files_da_fits)
+files_fits = list.files(path = folder_fits)
+runs = length(files_fits)
 d_fit_estimates = data.frame()
 for(i in 1:runs){
-  temp_data = readRDS(paste0(folder_da_fits, i,"_d_derived_var_fits.rds"))
+  temp_data = readRDS(paste0(folder_fits, i,"_d_derived_var_fits.rds"))
   d_fit_estimates = rbind(d_fit_estimates, temp_data)
 }
 
@@ -64,10 +64,10 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
 
 # we assume it is the same number of runs for both simulations
 # reading the simulated imputation datasets
-files_da_imps = list.files(path = folder_da_imps)
+files_imps = list.files(path = folder_imps)
 d_imp = data.frame()
 for(i in 1:runs){
-  temp_data = readRDS(paste0(folder_da_imps, i,"_d_derived_var_imps.rds"))
+  temp_data = readRDS(paste0(folder_imps, i,"_d_derived_var_imps.rds"))
   d_imp = rbind(d_imp, temp_data)
 }
 

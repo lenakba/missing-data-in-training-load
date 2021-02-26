@@ -361,8 +361,8 @@ sim_imp_derivedvar = function(d_missing, target, run = 1){
 # the warnings are caused by collinearity between the variables
 # which is expected
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_da_fits = paste0(base_folder, "derived_var_fits\\")
-folder_da_imps = paste0(base_folder, "derived_var_imps\\")
+folder_fits = paste0(base_folder, "derived_var_fits\\")
+folder_imps = paste0(base_folder, "derived_var_imps\\")
 
 # we create fake injuries
 d_sim_inj = d_srpe %>% 
@@ -381,8 +381,8 @@ for(i in 1:runs) {
   d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
   d_sim_fits = sim_impfit_derivedvar(d_missing, run = i)
   d_sim_imps = sim_imp_derivedvar(d_missing, target_srpe, run = i)
-  saveRDS(d_sim_fits, file=paste0(folder_da_fits, i,"_d_derived_var_fits.rds"))
-  saveRDS(d_sim_imps, file=paste0(folder_da_imps, i,"_d_derived_var_imps.rds"))
+  saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_derived_var_fits.rds"))
+  saveRDS(d_sim_imps, file=paste0(folder_imps, i,"_d_derived_var_imps.rds"))
 }
 options(warn=0)
 

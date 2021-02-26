@@ -18,7 +18,7 @@ source("performance-measure-functions.R", encoding = "UTF-8")
 #--------------------------------Read data and calculate performance measures on model fits
 
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_da_fits = paste0(base_folder, "srpe_fits\\")
+folder_fits = paste0(base_folder, "srpe_fits\\")
 
 # vector of chosen missing proportions
 # if we ever want to change it or add more proportions, easily done here.
@@ -26,12 +26,12 @@ missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
 
 # reading the simulated results from fits
-files_da_fits = list.files(path = folder_da_fits)
-n_sim = length(files_da_fits)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+files_fits = list.files(path = folder_fits)
+n_sim = length(files_fits)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
 d_fit_estimates = data.frame()
 for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_da_fits, i,"_d_srpe_fits_mar_",.,".rds"))) %>% bind_rows()
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_srpe_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits, i,"_d_srpe_fits_mar_",.,".rds"))) %>% bind_rows()
   d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
 }
 
@@ -64,15 +64,15 @@ write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_srpe.csv", d
 #--------------------------------Read data and calculate performance measures on the raw data
 
 # where the imputed datasets are saved
-folder_da_imps = paste0(base_folder, "srpe_imps\\")
+folder_imps = paste0(base_folder, "srpe_imps\\")
 n_sim= 5
 # we assume it is the same number of simulations for both simulations
 # reading the simulated imputation datasets
-files_da_imps = list.files(path = folder_da_imps)
+files_imps = list.files(path = folder_imps)
 d_imp = data.frame()
 for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_da_imps, i,"_d_srpe_imps_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_da_imps, i,"_d_srpe_imps_mar_",.,".rds"))) %>% bind_rows()
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_imps, i,"_d_srpe_imps_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_imps, i,"_d_srpe_imps_mar_",.,".rds"))) %>% bind_rows()
   d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
 }
 
