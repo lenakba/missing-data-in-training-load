@@ -228,21 +228,23 @@ target_col = d_td$td
 # the warnings are caused by collinearity between the variables
 # which is expected
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_srpe_fits = paste0(base_folder, "td_fits\\")
-folder_srpe_imps = paste0(base_folder, "td_imps\\")
-
-# vector of chosen missing proportions
-# if we ever want to change it or add more proportions, easily done here.
-missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
-missing_prop_mar = c("light", "medium", "strong")
+folder_fits = paste0(base_folder, "substudy_td_fits\\")
+folder_imps = paste0(base_folder, "substudy_td_imps\\")
 
 options(warn=-1)
 set.seed = 1234
 n_sim = 1900
 for(i in 1:n_sim){
-  # walk will run the function for each missing proportion in the vector
-  # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
-  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+  d_missing = add_mcar(d_exdata, 0.25)
+  d_sim_fits = sim_impfit_derivedvar(d_missing, run = i)
+  d_sim_imps = sim_imp_derivedvar(d_missing, target_srpe, run = i)
+  saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_td_fits.rds"))
+  saveRDS(d_sim_imps, file=paste0(folder_imps, i,"_d_td_imps.rds"))
+  
+  d_missing_nogps = add_mcar(d_exdata, 0.25, TRUE)
+  d_sim_fits = sim_impfit_derivedvar(d_missing_nogps, run = i)
+  d_sim_imps = sim_imp_derivedvar(d_missing_nogps, target_srpe, run = i)
+  saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_td_nogps_fits.rds"))
+  saveRDS(d_sim_imps, file=paste0(folder_imps, i,"_d_td_nogps_imps.rds"))
 }
 options(warn=0)
