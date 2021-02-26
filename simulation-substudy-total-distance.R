@@ -51,8 +51,9 @@ add_mcar_td = function(d, missing_prop, missing_gps = FALSE){
   if(missing_gps){
   d = d %>% mutate_at(vars(td, v4, v5, pl), ~ifelse(rowname %in% random_spots_td, NA, .))
   } else {
-  d = d %>% mutate(td = ifelse(rowname %in% random_spots_td, NA, td)) %>% dplyr::select(-rowname)
+  d = d %>% mutate(td = ifelse(rowname %in% random_spots_td, NA, td)) 
   }
+  d = d %>% dplyr::select(-rowname)
   d
 }
 
@@ -160,7 +161,7 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 # a single dataset, and pooling might have to be manually implemented according to Ruben's rules.
 # The simulation is, experienced from our derived-variable substudy, not that computationally heavy,
 # and so I think this solution is fine, although it breaks the Do-not-Repeat-Yourself (DRY) Principle.
-sim_imp = function(d_missing, target, run = 1){
+sim_imp = function(d_missing, target, rep = 1){
   
   # find which rows have missing and need imputation
   imp_rows_pos = which(is.na(d_missing$td))
@@ -219,7 +220,7 @@ target_param = get_params(fit.target, "No Imputation")
 # in a real life situation
 d_exdata_td = d_td %>% dplyr::select(-inj_prop)
 
-# fetch our original sRPE column, which is our original, true value, and we aim to target it
+# fetch our original total distance column, which is our original, true value, and we aim to target it
 target_col = d_td$td
 
 #####################For-loop simulation
@@ -233,17 +234,17 @@ folder_imps = paste0(base_folder, "substudy_td_imps\\")
 
 options(warn=-1)
 set.seed = 1234
-n_sim = 3
+n_sim = 1900
 for(i in 1:n_sim){
-  d_missing = add_mcar_td(d_exdata, 0.25)
-  d_sim_fits = sim_impfit_derivedvar(d_missing, run = i)
-  d_sim_imps = sim_imp_derivedvar(d_missing, target_srpe, run = i)
+  d_missing = add_mcar_td(d_exdata_td, 0.25)
+  d_sim_fits = sim_impfit(d_missing, target_param, rep = i)
+  d_sim_imps = sim_imp(d_missing, target_col, rep = i)
   saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_td_fits.rds"))
   saveRDS(d_sim_imps, file=paste0(folder_imps, i,"_d_td_imps.rds"))
   
-  d_missing_nogps = add_mcar_td(d_exdata, 0.25, TRUE)
-  d_sim_fits = sim_impfit_derivedvar(d_missing_nogps, run = i)
-  d_sim_imps = sim_imp_derivedvar(d_missing_nogps, target_srpe, run = i)
+  d_missing_nogps = add_mcar_td(d_exdata_td, 0.25, TRUE)
+  d_sim_fits = sim_impfit(d_missing_nogps, target_param, rep = i)
+  d_sim_imps = sim_imp(d_missing_nogps, target_col, rep = i)
   saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_td_nogps_fits.rds"))
   saveRDS(d_sim_imps, file=paste0(folder_imps, i,"_d_td_nogps_imps.rds"))
 }
