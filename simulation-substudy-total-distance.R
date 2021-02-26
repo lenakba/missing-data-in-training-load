@@ -21,7 +21,7 @@ d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td
 # select vars we need in the simulation, key variables we think are correlated with the level of total distance
 keyvars = c("p_id", "training_date", "mc_day", "week_nr")
 d_td = na.omit(d_td_full) %>% 
-  select(all_of(keyvars), td = total_distance_daily, srpe, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
+  select(all_of(keyvars), td = total_distance_daily, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
 
 # adding a variable for match
 # under the assumption that this is very predictive of total distance
@@ -44,35 +44,18 @@ inj_probability_td = function(td){
 }
 
 # Create missing completely at random
-add_mcar_td = function(d, missing_prop){
+add_mcar_td = function(d, missing_prop, missing_gps = FALSE){
   n_values = nrow(d)
   d = d %>% rownames_to_column()
   random_spots_td = sample(1:n_values, round(missing_prop*n_values))
+  if(missing_gps){
+  d = d %>% mutate_at(vars(td, v4, v5, pl), ~ifelse(rowname %in% random_spots_td, NA, .))
+  } else {
   d = d %>% mutate(td = ifelse(rowname %in% random_spots_td, NA, td)) %>% dplyr::select(-rowname)
+  }
   d
 }
 
-# Create missing with Missing probability based on other variables (Missing at Random)
-# linear logistic regression function
-# for the relationship between different variables and the probability of missing
-mar_function = function(d, corr){
-  if(corr == "light"){
-    y = log_reg(-2 + (0.03*d$age) + (0.02*d$sex) + (0.3*d$freeday))
-  } else if(corr == "medium"){
-    y = log_reg(-2 + (0.08*d$age) + (0.04*d$sex) + (0.8*d$freeday))    
-  }  else if(corr == "strong"){
-    y = log_reg(-2 + (0.13*d$age) + (0.1*d$sex) + (1.8*d$freeday) + (1.8*d$match))     
-  }
-  y
-}
-
-# adding missing at random to a dataset
-add_mar_td = function(d, corr){
-  d = d %>% mutate(na_prop = mar_function(., corr),
-                   na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
-                   td = ifelse(na_spot_td == 1, NA, td))
-  d %>% dplyr::select(-starts_with("na"))
-}
 
 # impute mean function which calculates the mean by a chosen grouping variable
 impute_mean = function(d, group_var){
@@ -236,16 +219,6 @@ target_param = get_params(fit.target, "No Imputation")
 # in a real life situation
 d_exdata_td = d_td %>% dplyr::select(-inj_prop)
 
-# for missing at random, we create fake variables with correlation to the amount of missing
-# we add fake age and sex, and we use the day of the week to determine weekend
-# we'll use these variables to create Missing at Random
-td_p_id = d_td %>% distinct(p_id) 
-td_id_base = td_p_id %>% mutate(age = sample(18:30, length(td_p_id$p_id), replace = TRUE),
-                                sex = sample(0:1, length(td_p_id$p_id), replace = TRUE))
-d_exdata_mar = d_exdata_td %>% 
-  left_join(td_id_base, by = "p_id") %>% 
-  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0))
-
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
 target_col = d_td$td
 
@@ -257,28 +230,6 @@ target_col = d_td$td
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
 folder_srpe_fits = paste0(base_folder, "td_fits\\")
 folder_srpe_imps = paste0(base_folder, "td_imps\\")
-
-# helper function for performing all needed simulations
-# given a missing type (missing), either "mcar" or "mar"
-# and amount of missing, a proportion for mcar or "light"/"medium"/"strong" for mar
-# not that the datasets have to be ready beforehand, this is NOT a general function
-sim_impute = function(missing, missing_amount, rep){
-  
-  if(missing == "mcar"){
-    d_mcar = add_mcar_td(d_exdata_td, missing_amount)
-    d_sim_fits_mcar = sim_impfit(d_mcar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_fits_mcar, file=paste0(folder_srpe_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds"))  
-    d_sim_imps_mcar = sim_imp(d_mcar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_imps_mcar, file=paste0(folder_srpe_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
-    
-  } else if(missing == "mar"){
-    d_mar = add_mar_td(d_exdata_mar, missing_amount)
-    d_sim_fits_mar = sim_impfit(d_mar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_fits_mar, file=paste0(folder_srpe_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds")) 
-    d_sim_imps_mar = sim_imp(d_mar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
-    saveRDS(d_sim_imps_mar, file=paste0(folder_srpe_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
-  }
-}
 
 # vector of chosen missing proportions
 # if we ever want to change it or add more proportions, easily done here.
