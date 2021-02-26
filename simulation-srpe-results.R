@@ -41,7 +41,7 @@ for(i in 1:n_sim){
 target_coef = 0.003
 d_fit_estimates_srpe = d_fit_estimates %>% 
   mutate(target_est = target_coef) %>% 
-  filter(term == "srpe")
+  filter(term == "srpe", method != "No Imputation")
 
 perf_estimates_targetcoef = d_fit_estimates_srpe %>% 
   group_by(method, missing_type, missing_amount) %>% 
@@ -53,7 +53,7 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
             power = power(p, n()),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, rb) %>% ungroup()
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
 
 # save to csv
 # save results
