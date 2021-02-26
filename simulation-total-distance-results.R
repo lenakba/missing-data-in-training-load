@@ -21,7 +21,7 @@ folder_da_fits = paste0(base_folder, "td_fits\\")
 
 # vector of chosen missing proportions
 # if we ever want to change it or add more proportions, easily done here.
-missing_prop_mcar = c(0.05, 0.1, 0.3, 0.5, 0.7, 0.9)
+missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
 
 # reading the simulated results from fits
@@ -40,7 +40,7 @@ for(i in 1:n_sim){
 target_coef = 0.0003
 d_fit_estimates_td = d_fit_estimates %>% 
   mutate(target_est = target_coef) %>% 
-  filter(term == "td")
+  filter(term == "td", method != "No Imputation")
 
 perf_estimates_targetcoef = d_fit_estimates_td %>% 
   group_by(method, missing_type, missing_amount) %>% 
@@ -52,7 +52,7 @@ perf_estimates_targetcoef = d_fit_estimates_td %>%
             power = power(p, n()),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, rb) %>% ungroup()
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
 
 # save to csv
 # save results

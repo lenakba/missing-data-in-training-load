@@ -22,7 +22,7 @@ folder_da_fits = paste0(base_folder, "srpe_fits\\")
 
 # vector of chosen missing proportions
 # if we ever want to change it or add more proportions, easily done here.
-missing_prop_mcar = c(0.05, 0.1, 0.3, 0.5, 0.7, 0.9)
+missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
 
 # reading the simulated results from fits
