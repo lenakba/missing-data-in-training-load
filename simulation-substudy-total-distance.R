@@ -233,15 +233,15 @@ folder_imps = paste0(base_folder, "substudy_td_imps\\")
 
 options(warn=-1)
 set.seed = 1234
-n_sim = 1900
+n_sim = 3
 for(i in 1:n_sim){
-  d_missing = add_mcar(d_exdata, 0.25)
+  d_missing = add_mcar_td(d_exdata, 0.25)
   d_sim_fits = sim_impfit_derivedvar(d_missing, run = i)
   d_sim_imps = sim_imp_derivedvar(d_missing, target_srpe, run = i)
   saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_td_fits.rds"))
   saveRDS(d_sim_imps, file=paste0(folder_imps, i,"_d_td_imps.rds"))
   
-  d_missing_nogps = add_mcar(d_exdata, 0.25, TRUE)
+  d_missing_nogps = add_mcar_td(d_exdata, 0.25, TRUE)
   d_sim_fits = sim_impfit_derivedvar(d_missing_nogps, run = i)
   d_sim_imps = sim_imp_derivedvar(d_missing_nogps, target_srpe, run = i)
   saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_td_nogps_fits.rds"))
