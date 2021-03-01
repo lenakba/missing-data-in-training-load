@@ -292,3 +292,44 @@ for(i in 1:n_sim){
   missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
 }
 options(warn=0)
+
+#----------------------------------------------To check if results are different whether all GPS variables have missing or not
+
+
+# performing simulations with n runs
+# the warnings are caused by collinearity between the variables
+# which is expected
+base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+folder_fits = paste0(base_folder, "td_fits_nogps\\")
+folder_imps = paste0(base_folder, "td_imps_nogps\\")
+
+# Create missing completely at random
+add_mcar_td = function(d, missing_prop){
+  n_values = nrow(d)
+  d = d %>% rownames_to_column()
+  random_spots_td = sample(1:n_values, round(missing_prop*n_values))
+  d = d %>% mutate_at(vars(td, v4, v5, pl), ~ifelse(rowname %in% random_spots_td, NA, .)) %>% dplyr::select(-rowname)
+  d
+}
+
+# adding missing at random to a dataset
+add_mar_td = function(d, corr){
+  d = d %>% mutate(na_prop = mar_function(., corr),
+                   na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
+                   td = ifelse(na_spot_td == 1, NA, td),
+                   v4 = ifelse(na_spot_td == 1, NA, v4),
+                   td = ifelse(na_spot_td == 1, NA, v5),
+                   td = ifelse(na_spot_td == 1, NA, pl))
+  d %>% dplyr::select(-starts_with("na"))
+}
+
+options(warn=-1)
+set.seed = 1234
+n_sim = 1900
+for(i in 1:n_sim){
+  # walk will run the function for each missing proportion in the vector
+  # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+}
+options(warn=0)
