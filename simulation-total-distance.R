@@ -318,8 +318,8 @@ add_mar_td = function(d, corr){
                    na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
                    td = ifelse(na_spot_td == 1, NA, td),
                    v4 = ifelse(na_spot_td == 1, NA, v4),
-                   td = ifelse(na_spot_td == 1, NA, v5),
-                   td = ifelse(na_spot_td == 1, NA, pl))
+                   v5 = ifelse(na_spot_td == 1, NA, v5),
+                   pl = ifelse(na_spot_td == 1, NA, pl))
   d %>% dplyr::select(-starts_with("na"))
 }
 
