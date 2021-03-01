@@ -61,6 +61,53 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
 # that the file encoding is UTF-8
 write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_srpe.csv", delim = ";", na = "")
 
+#------------------- figures
+d_fig = perf_estimates_targetcoef %>% select(method, missing_type, missing_amount, pb, rmse) %>% mutate(pb = pb/100)
+
+d_fig_mcar = d_fig %>% filter(missing_type == "mcar")
+d_fig_mar = d_fig %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light MAR",
+                                                                                          missing_amount == "medium" ~ "Medium MAR",
+                                                                                          missing_amount == "strong" ~ "Strong MAR"))
+
+library(lmisc) # ggplot2 themes
+ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
+  geom_line(size = 1) +
+  geom_hline(yintercept = 0, size = 2, alpha = 0.3) +
+  geom_point(size = 2) +
+  theme_line() +
+  scale_y_continuous(labels = axis_percent) +
+  ylab("Percent\nBias") + 
+  xlab("% Missing under MCAR") + 
+  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
+  theme(legend.position="bottom",
+        legend.title=element_blank())
+
+ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  theme_line() +
+  ylab("RMSE") + 
+  xlab("% Missing under MCAR") +
+  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
+  theme(legend.position="bottom",
+        legend.title=element_blank())
+
+
+ggplot(d_fig_mar, aes(x = rmse, y = method)) + 
+  facet_wrap(~missing_amount) +
+  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
+  theme_barh() +
+  xlab("Root-Mean-Squared Error (RMSE)") +
+  ylab(NULL)
+
+ggplot(d_fig_mar, aes(x = pb, y = method)) + 
+  facet_wrap(~missing_amount) +
+  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
+  theme_barh() +
+  xlab("Percent Bias") +
+  ylab(NULL) +
+  scale_x_continuous(labels = axis_percent)
+
 #--------------------------------Read data and calculate performance measures on the raw data
 
 # where the imputed datasets are saved
