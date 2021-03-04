@@ -34,6 +34,14 @@ for(i in 1:n_sim){
   d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
 }
 
+# number of permutations needed for MCSE for bias of 0.5
+d_fit_estimates_td %>% 
+  filter(rep <= 100) %>% 
+  mutate(rb = estimate - target_est) %>% 
+  group_by(method, missing_amount) %>% 
+  summarise(variance_est = var(rb, na.rm = TRUE), n_sim = (variance_est^2)/0.25)
+
+
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
 # using target coefficient is ideal
 # the real coefficient is: 0.003
@@ -41,6 +49,8 @@ target_coef = 0.0003
 d_fit_estimates_td = d_fit_estimates %>% 
   mutate(target_est = target_coef) %>% 
   filter(term == "td", method != "No Imputation")
+
+
 
 perf_estimates_targetcoef = d_fit_estimates_td %>% 
   group_by(method, missing_type, missing_amount) %>% 
@@ -50,6 +60,7 @@ perf_estimates_targetcoef = d_fit_estimates_td %>%
             coverage = coverage(CI_low, CI_high, target_est, n()),
             average_width = average_width(CI_low, CI_high),
             power = power(p, n()),
+            mcse_bias = mcse_bias(estimate, target_est, n_sim),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
   arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
@@ -135,6 +146,19 @@ d_fit_estimates_td_srpe = d_fit_estimates_srpe %>%
   mutate(target_est = target_coef) %>% 
   filter(term == "td", method != "No Imputation")
 
+perf_estimates_targetcoef_srpe = d_fit_estimates_td_srpe %>% 
+  group_by(method, missing_type, missing_amount) %>% 
+  summarise(rb = raw_bias(estimate, target_est),
+            pb = percent_bias(estimate, target_est),
+            rmse = rmse(estimate, target_est),
+            coverage = coverage(CI_low, CI_high, target_est, n()),
+            average_width = average_width(CI_low, CI_high),
+            power = power(p, n()),
+            mcse_bias = mcse_bias(estimate, target_est, n_sim),
+            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
+            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "Maximum Information")
+
 # same for no gps data
 folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
 
@@ -160,15 +184,16 @@ perf_estimates_targetcoef_nogps = d_fit_estimates_td_nogps %>%
             coverage = coverage(CI_low, CI_high, target_est, n()),
             average_width = average_width(CI_low, CI_high),
             power = power(p, n()),
+            mcse_bias = mcse_bias(estimate, target_est, n_sim),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "All GPS variables missing")
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "Minimal Information")
 
 # adding name onto original simulation
-perf_estimates_targetcoef = perf_estimates_targetcoef %>% mutate(var_combo = "Only missing in Total Distance")
+perf_estimates_targetcoef = perf_estimates_targetcoef %>% mutate(var_combo = "Medium Information")
 
 # combining into 1 dataset
-perf_estimates_all = bind_rows(perf_estimates_targetcoef, perf_estimates_targetcoef_nogps)
+perf_estimates_all = bind_rows(perf_estimates_targetcoef, perf_estimates_targetcoef_nogps, perf_estimates_targetcoef_srpe)
 
 # Figures
 d_fig_all = perf_estimates_all %>% select(method, missing_type, missing_amount, pb, rmse, var_combo) %>% mutate(pb = pb/100)
@@ -176,10 +201,13 @@ d_fig_mcar_all = d_fig_all %>% filter(missing_type == "mcar")
 d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light MAR",
                                                                                                   missing_amount == "medium" ~ "Medium MAR",
                                                                                                   missing_amount == "strong" ~ "Strong MAR"))
-
+library(lmisc) # ggplot2 themes
+text_size = 13
 ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
   facet_wrap(~var_combo) + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.3) +
+  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3) +
+  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_line() +
