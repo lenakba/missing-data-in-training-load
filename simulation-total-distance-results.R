@@ -69,43 +69,143 @@ d_fig_mar = d_fig %>% filter(missing_type == "mar") %>% mutate(missing_amount = 
                                                                                           missing_amount == "strong" ~ "Strong MAR"))
 
 library(lmisc) # ggplot2 themes
-ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
+text_size = 13
+plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
+  geom_hline(yintercept = 0, size = 1, alpha = 0.3) +
   geom_line(size = 1) +
-  geom_hline(yintercept = 0, size = 2, alpha = 0.3) +
   geom_point(size = 2) +
   theme_line() +
   scale_y_continuous(labels = axis_percent) +
   ylab("Percent\nBias") + 
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
-  theme(legend.position="bottom",
-        legend.title=element_blank())
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size))
 
-ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
+plot_mcar_rmse = ggplot(d_fig_mcar,  aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_line() +
   ylab("RMSE") + 
   xlab("% Missing under MCAR") +
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
-  theme(legend.position="bottom",
-        legend.title=element_blank())
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size))
 
-
-ggplot(d_fig_mar, aes(x = rmse, y = method)) + 
-  facet_wrap(~missing_amount) +
-  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
-  theme_barh() +
-  xlab("Root-Mean-Squared Error (RMSE)") +
-  ylab(NULL)
-
-ggplot(d_fig_mar, aes(x = pb, y = method)) + 
+plot_mar_pb = ggplot(d_fig_mar, aes(x = pb, y = method)) + 
   facet_wrap(~missing_amount) +
   ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
   theme_barh() +
   xlab("Percent Bias") +
   ylab(NULL) +
-  scale_x_continuous(labels = axis_percent)
+  scale_x_continuous(labels = axis_percent) +
+  theme(axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size))
+
+plot_mar_rmse = ggplot(d_fig_mar, aes(x = rmse, y = method)) + 
+  facet_wrap(~missing_amount) +
+  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
+  theme_barh() +
+  xlab("Root-Mean-Squared Error (RMSE)") +
+  ylab(NULL) +
+  theme(axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size))
+
+#--------------------------------------------is there any difference for having sRPE, and having no gps, vs. missing total distance without sRPE?
+# folder of fits for the srpe version
+folder_fits_srpe = paste0(base_folder, "td_fits_srpe\\")
+
+# reading the simulated results from fits
+files_fits_srpe = list.files(path = folder_fits_srpe)
+n_sim = length(files_fits_srpe)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+d_fit_estimates_srpe = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_srpe = rbind(d_fit_estimates_srpe, temp_data_mcar, temp_data_mar)
+}
+
+d_fit_estimates_td_srpe = d_fit_estimates_srpe %>% 
+  mutate(target_est = target_coef) %>% 
+  filter(term == "td", method != "No Imputation")
+
+# same for no gps data
+folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
+
+# reading the simulated results from fits
+files_fits_nogps = list.files(path = folder_fits_nogps)
+n_sim = length(files_fits_nogps)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+d_fit_estimates_nogps = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_nogps = rbind(d_fit_estimates_nogps, temp_data_mcar, temp_data_mar)
+}
+
+d_fit_estimates_td_nogps = d_fit_estimates_nogps %>% 
+  mutate(target_est = target_coef) %>% 
+  filter(term == "td", method != "No Imputation")
+
+perf_estimates_targetcoef_nogps = d_fit_estimates_td_nogps %>% 
+  group_by(method, missing_type, missing_amount) %>% 
+  summarise(rb = raw_bias(estimate, target_est),
+            pb = percent_bias(estimate, target_est),
+            rmse = rmse(estimate, target_est),
+            coverage = coverage(CI_low, CI_high, target_est, n()),
+            average_width = average_width(CI_low, CI_high),
+            power = power(p, n()),
+            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
+            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "All GPS variables missing")
+
+# adding name onto original simulation
+perf_estimates_targetcoef = perf_estimates_targetcoef %>% mutate(var_combo = "Only missing in Total Distance")
+
+# combining into 1 dataset
+perf_estimates_all = bind_rows(perf_estimates_targetcoef, perf_estimates_targetcoef_nogps)
+
+# Figures
+d_fig_all = perf_estimates_all %>% select(method, missing_type, missing_amount, pb, rmse, var_combo) %>% mutate(pb = pb/100)
+d_fig_mcar_all = d_fig_all %>% filter(missing_type == "mcar")
+d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light MAR",
+                                                                                                  missing_amount == "medium" ~ "Medium MAR",
+                                                                                                  missing_amount == "strong" ~ "Strong MAR"))
+
+ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
+  facet_wrap(~var_combo) + 
+  geom_hline(yintercept = 0, size = 1, alpha = 0.3) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  theme_line() +
+  scale_y_continuous(labels = axis_percent) +
+  ylab("Percent\nBias") + 
+  xlab("% Missing under MCAR") + 
+  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size))
+
+ggplot(d_fig_mcar_all,  aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
+  facet_wrap(~var_combo) + 
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  theme_line() +
+  ylab("RMSE") + 
+  xlab("% Missing under MCAR") +
+  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size))
+
+
 
 #--------------------------------Read data and calculate performance measures on the raw data
 
