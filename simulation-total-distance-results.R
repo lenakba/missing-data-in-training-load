@@ -50,8 +50,6 @@ d_fit_estimates_td = d_fit_estimates %>%
   mutate(target_est = target_coef) %>% 
   filter(term == "td", method != "No Imputation")
 
-
-
 perf_estimates_targetcoef = d_fit_estimates_td %>% 
   group_by(method, missing_type, missing_amount) %>% 
   summarise(rb = raw_bias(estimate, target_est),
@@ -194,46 +192,91 @@ perf_estimates_targetcoef = perf_estimates_targetcoef %>% mutate(var_combo = "Me
 
 # combining into 1 dataset
 perf_estimates_all = bind_rows(perf_estimates_targetcoef, perf_estimates_targetcoef_nogps, perf_estimates_targetcoef_srpe)
+# save to csv
+write_excel_csv(perf_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
 
-# Figures
-d_fig_all = perf_estimates_all %>% select(method, missing_type, missing_amount, pb, rmse, var_combo) %>% mutate(pb = pb/100)
-d_fig_mcar_all = d_fig_all %>% filter(missing_type == "mcar")
-d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light MAR",
-                                                                                                  missing_amount == "medium" ~ "Medium MAR",
-                                                                                                  missing_amount == "strong" ~ "Strong MAR"))
+#--------------- Figures
+d_fig_all = perf_estimates_all %>% 
+            select(method, missing_type, missing_amount, pb, rmse, var_combo) %>% mutate(pb = pb/100) %>% 
+            mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean Imputation -\nMean per player",
+                                      method == "Mean Imputation - Mean per week" ~ "Mean Imputation -\nMean per week",
+                                      TRUE ~ method))
+d_fig_mcar_all = d_fig_all %>% filter(missing_type == "mcar") 
+d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light",
+                                                                                                  missing_amount == "medium" ~ "Medium",
+                                                                                                  missing_amount == "strong" ~ "Strong"))
 library(lmisc) # ggplot2 themes
-text_size = 13
-ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
+library(ggpubr) # for multiple plots in one thanks to ggarrange()
+library(devEMF) # for saving emf files
+text_size = 16
+plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
   facet_wrap(~var_combo) + 
-  geom_hline(yintercept = 0, size = 1, alpha = 0.3) +
-  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3) +
-  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3) +
+  geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
+  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
+  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_line() +
-  scale_y_continuous(labels = axis_percent) +
-  ylab("Percent\nBias") + 
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0), limits = c(-0.5, 0.25)) +
+  ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
-  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
-  theme(legend.title=element_blank(),
+  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
+  theme(legend.position = "none",
+        legend.title=element_blank(),
         axis.text = element_text(size=text_size),
         strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
 
-ggplot(d_fig_mcar_all,  aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
+plot_mcar_rmse = ggplot(d_fig_mcar_all,  aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
   facet_wrap(~var_combo) + 
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_line() +
   ylab("RMSE") + 
   xlab("% Missing under MCAR") +
-  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
+  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0)) +
   theme(legend.title=element_blank(),
         axis.text = element_text(size=text_size),
         strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
 
 
+plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = method, color = method)) +
+  facet_wrap(~var_combo) + 
+  geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
+  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
+  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  theme_line() +
+  ylab("% Bias") + 
+  xlab("Missing amount under MAR") + 
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0), limits = c(-0.5, 0.25))  +
+  theme(legend.position = "bottom",
+        legend.title=element_blank(),
+        axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
+
+plot_mar_rmse = ggplot(d_fig_mar_all, aes(x = missing_amount, y = rmse, group = method, color = method)) +
+  facet_wrap(~var_combo) + 
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  theme_line() +
+  ylab("RMSE") + 
+  xlab("Missing amount under MAR") + 
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size=text_size),
+        strip.text.x = element_text(size = text_size),
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
+
+emf("td_pb_mar_mcar.emf", width = 16, height = 10)
+ggarrange(plot_mcar_pb, plot_mar_pb, ncol = 1, labels = "AUTO")
+dev.off()
 
 #--------------------------------Read data and calculate performance measures on the raw data
 
@@ -267,3 +310,19 @@ perf_esimates_impvalues = d_imp %>% filter(method != "Complete Case Analysis", i
 # xyplot(imp.itt, injury ~ td)
 
 # nested-loop-plot?
+
+
+# dotplot version
+# plot_mar_pb =  ggplot(d_fig_mar_all, aes(x = pb, y = method)) + 
+#   facet_wrap(c("missing_amount", "var_combo")) +
+#   geom_vline(xintercept = 0, size = 1, alpha = 0.3, colour = bjsm_blue) +
+#   geom_vline(xintercept = 0.05, size = 1, alpha = 0.3) +
+#   geom_vline(xintercept = -0.05, size = 1, alpha = 0.3) +
+#   geom_point(size = 3) + 
+#   theme_dot() + 
+#   xlab("Percent Bias") +
+#   ylab(NULL) +
+#   scale_x_continuous(labels = axis_percent) +
+#   theme(axis.text = element_text(size=text_size),
+#         strip.text.x = element_text(size = text_size),
+#         axis.title =  element_text(size=text_size))
