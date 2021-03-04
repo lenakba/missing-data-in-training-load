@@ -21,6 +21,23 @@ rmse = function(estimate, target){
 }
 
 # monte carlo standard error also requires the number of simulations (runs, permutations)
+mcse_bias = function(estimate, target, nsim){
+  
+  d_se = bind_cols(data.frame(estimate), data.frame(target)) 
+  d_est = data.frame(numeric(nrow(d_se)))
+  colnames(d_est) = "bias_j"
+  for(i in 1:nrow(d_se)){
+    d_temp = d_se[-i,]
+    rb = raw_bias(d_temp$estimate, d_temp$target)
+    d_est[i,1] = rb
+  }
+  
+  bias_j = d_est$bias_j
+  main_rb = raw_bias(estimate, target)
+  mcse = sqrt(sum((bias_j-main_rb)^2)/(nsim*(nsim-1)))
+  mcse
+}
+
 mcse_rmse = function(estimate, target, nsim){
   
   d_se = bind_cols(data.frame(estimate), data.frame(target)) 
