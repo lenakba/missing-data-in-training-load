@@ -32,6 +32,13 @@ d_tl_study = d_tl_study_recent %>% filter_at(vars(starts_with("review")), any_va
 d_tl_study %>% summarise(n_report = sum(!is.na(n_injuries_analyses), na.rm = TRUE), n_studies = n(), prop = n_report/n_studies)
 d_tl_study %>% summarise(mean_age = mean(population_mean_age, na.rm = TRUE), sd_age = sd(population_mean_age, na.rm = TRUE))
 
+# mean injuries
+d_tl_study %>% filter(!is.na(n_injuries_analyses)) %>% summarise(mean = mean(n_injuries_analyses), 
+                                                                 sd = sd(n_injuries_analyses),
+                                                                 sum_target = sum(n_injuries_analyses >= 200),
+                                                                 denom = n(),
+                                                                 prop = sum_target/denom)
+
 calc_perc = function(x, d = d_tl_study){
   x = enquo(x)
   d %>% count(!!x) %>% mutate(denominuator = sum(n), prop = n/denominuator) %>% arrange(desc(prop))
