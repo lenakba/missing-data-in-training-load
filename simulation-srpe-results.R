@@ -62,32 +62,41 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
 write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_srpe.csv", delim = ";", na = "")
 
 #------------------- figures
-d_fig = perf_estimates_targetcoef %>% select(method, missing_type, missing_amount, pb, rmse) %>% mutate(pb = pb/100)
+d_fig = perf_estimates_targetcoef %>% 
+  select(method, missing_type, missing_amount, pb, rmse) %>% 
+  mutate(pb = pb/100)
 
 d_fig_mcar = d_fig %>% filter(missing_type == "mcar")
-d_fig_mar = d_fig %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light MAR",
-                                                                                          missing_amount == "medium" ~ "Medium MAR",
-                                                                                          missing_amount == "strong" ~ "Strong MAR"))
+d_fig_mar = d_fig %>% filter(missing_type == "mar") %>% 
+            mutate(missing_amount = case_when(missing_amount == "light" ~ "Light MAR",
+                   missing_amount == "medium" ~ "Medium MAR",
+                   missing_amount == "strong" ~ "Strong MAR"),
+                   method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean Imputation\nMean per player",
+                                      method == "Mean Imputation - Mean per week" ~ "Mean Imputation\nMean per week",
+                                      TRUE ~ method))
 
 library(lmisc) # ggplot2 themes
 library(ggpubr) # for multiple plots in one thanks to ggarrange()
 library(devEMF) # for saving emf files
 text_size = 13
 plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
-  geom_hline(yintercept = 0, size = 1, alpha = 0.3) +
+  geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
+  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
+  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
   geom_line(size = 1) +
   geom_point(size = 2) +
-  theme_line() +
+  theme_line()  +
   scale_y_continuous(labels = axis_percent) +
-  ylab("Percent\nBias") + 
+  ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
   theme(legend.title=element_blank(),
         axis.text = element_text(size=text_size),
         strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
 
-plot_mcar_rmse =ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
+plot_mcar_rmse = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_line() +
@@ -97,35 +106,41 @@ plot_mcar_rmse =ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = rmse,
   theme(legend.title=element_blank(),
         axis.text = element_text(size=text_size),
         strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
 
 emf("srpe_mcar.emf", width = 10, height = 8)
-ggarrange(plot_mcar_pb, plot_mcar_rmse, ncol = 1)
+ggarrange(plot_mcar_pb, plot_mcar_rmse, ncol = 1, labels = c("                A", "                 B"))
 dev.off()
 
-plot_mar_pb = ggplot(d_fig_mar, aes(x = pb, y = method)) + 
+plot_mar_pb =  ggplot(d_fig_mar, aes(x = pb, y = method)) +
   facet_wrap(~missing_amount) +
-  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
-  theme_barh() +
-  xlab("Percent Bias") +
+  geom_vline(xintercept = 0, size = 1, alpha = 0.3) +
+  geom_vline(xintercept = 0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
+  geom_vline(xintercept = -0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
+  geom_point(size = 3) +
+  theme_dot() +
+  xlab("% Bias") +
   ylab(NULL) +
-  scale_x_continuous(labels = axis_percent) +
+  scale_x_continuous(labels = axis_percent)  +
   theme(axis.text = element_text(size=text_size),
         strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
 
 plot_mar_rmse = ggplot(d_fig_mar, aes(x = rmse, y = method)) + 
   facet_wrap(~missing_amount) +
-  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
-  theme_barh() +
+  geom_point(size = 3) +
+  theme_dot() +
   xlab("Root-Mean-Squared Error (RMSE)") +
-  ylab(NULL) +
+  ylab(NULL)  +
   theme(axis.text = element_text(size=text_size),
         strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
+        axis.title =  element_text(size=text_size),
+        legend.text=element_text(size=text_size))
 
 emf("srpe_mar.emf", width = 12, height = 7)
-ggarrange(plot_mar_pb, plot_mar_rmse, ncol = 1)
+ggarrange(plot_mar_pb, plot_mar_rmse, ncol = 1, labels = "AUTO")
 dev.off()
 
 #--------------------------------Read data and calculate performance measures on the raw data
