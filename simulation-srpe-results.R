@@ -86,7 +86,7 @@ plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, gr
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_line()  +
-  scale_y_continuous(labels = axis_percent) +
+  scale_y_continuous(labels = axis_percent, limits = c(NA, NA)) +
   ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
@@ -94,7 +94,8 @@ plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, gr
         axis.text = element_text(size=text_size),
         strip.text.x = element_text(size = text_size),
         axis.title =  element_text(size=text_size),
-        legend.text=element_text(size=text_size))
+        legend.text=element_text(size=text_size)) +
+  coord_cartesian(ylim=c(NA, 1.15))
 
 plot_mcar_rmse = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
   geom_line(size = 1) +
@@ -139,7 +140,7 @@ plot_mar_rmse = ggplot(d_fig_mar, aes(x = rmse, y = method)) +
         axis.title =  element_text(size=text_size),
         legend.text=element_text(size=text_size))
 
-emf("srpe_mar.emf", width = 12, height = 7)
+emf("srpe_mar.emf", width = 13, height = 7)
 ggarrange(plot_mar_pb, plot_mar_rmse, ncol = 1, labels = "AUTO")
 dev.off()
 
