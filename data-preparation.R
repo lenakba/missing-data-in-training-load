@@ -237,6 +237,17 @@ d_player = dbGetQuery(db_stromsgodset,
                            paste0("SELECT *
                   FROM training_data_2019.player")) %>% as_tibble() %>% select(player_id)
 
+# to obtain player position data, which is available in a .csv file
+folder = "O:\\Prosjekter\\Dalen-Lorentsen - Belastningsstyring - prosjekt 1 - metode\\Data\\stromsgodset\\raw_data\\"
+player_cols = cols(
+  name = col_character(),
+  id = col_integer(),
+  position = col_character(),
+  position_group = col_character()
+)
+d_player_pos = read_delim(paste0(folder, "player_mappings.csv"), delim = ";", col_types = player_cols) %>% select(player_id = id, position)
+d_player = d_player %>% left_join(d_player_pos, by = "player_id")
+
 # add GPS data with leftjoin so we keep players without GPS values
 d_player_gps = d_player %>% left_join(d_td_daily, by = "player_id")
 
@@ -299,7 +310,7 @@ d_load_full = d_load %>% group_by(player_id) %>%
          tidyr::complete(training_date = seq.Date(first_date, lubridate::as_date("2019-12-03"), by = "day")) %>% ungroup()
 
 # filling missing player variables
-d_load_full = d_load_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, .direction = "downup") %>% ungroup()
+d_load_full = d_load_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, position, .direction = "downup") %>% ungroup()
 
 # add the date data again so that we can find which days of the newly added ones are matches and freedays etc.
 date_infovars = c("datekey", "day_of_week", "week_nr", "match_indicator", "mc_day")
@@ -341,7 +352,7 @@ d_srpe_full = d_player_srpe %>% group_by(player_id) %>%
   tidyr::complete(training_date = seq.Date(first_date, lubridate::as_date("2019-12-03"), by = "day")) %>% ungroup()
 
 # filling missing player variables
-d_srpe_full = d_srpe_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, .direction = "downup") %>% ungroup()
+d_srpe_full = d_srpe_full %>% group_by(player_id) %>% fill(missing_player, missing_player_text, position, .direction = "downup") %>% ungroup()
 
 # add the date data  so that we can find which days of the newly added ones are matches and freedays etc.
 d_srpe_full_dt = d_srpe_full %>% left_join(d_weeks, by = "training_date")
@@ -367,7 +378,7 @@ d_load_anon = d_load_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-
 d_srpe_anon = d_srpe_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
 # select wanted columns in the order that we want them
-shared_vars = c("p_id", "training_date", "day_of_week", "mc_day", "week_nr")
+shared_vars = c("p_id", "training_date", "day_of_week", "mc_day", "week_nr", "position")
 d_load_final = d_load_anon %>% select(all_of(shared_vars), srpe, ends_with("daily"), starts_with("missing"))
 d_srpe_final = d_srpe_anon %>% select(all_of(shared_vars), rpe, duration, starts_with("missing"))
 
