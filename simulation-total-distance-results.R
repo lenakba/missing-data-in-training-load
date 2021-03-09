@@ -256,7 +256,7 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size))
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"))
 
 emf("td_pb_mcar.emf", width = 12, height = 8)
 plot_mcar_pb
@@ -275,39 +275,12 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
   xlab("Missing amount under MAR") + 
   scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0), limits = c(-0.5, 0.25))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size))
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"))
 
 
 emf("td_pb_mar.emf", width = 12, height = 8)
 plot_mar_pb
 dev.off()
-
-plot_mcar_rmse = ggplot(d_fig_mcar_all,  aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
-  facet_wrap(~var_combo) + 
-  geom_line(size = 1) +
-  geom_point(size = 2) +
-  theme_line() +
-  ylab("RMSE") + 
-  xlab("% Missing under MCAR") +
-  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0)) +
-  theme(legend.title=element_blank(),
-        axis.text = element_text(size=text_size),
-        strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size),
-        legend.text=element_text(size=text_size))
-
-plot_mar_rmse = ggplot(d_fig_mar_all, aes(x = missing_amount, y = rmse, group = method, color = method)) +
-  facet_wrap(~var_combo) + 
-  geom_line(size = 1) +
-  geom_point(size = 2) +
-  theme_line() +
-  ylab("RMSE") + 
-  xlab("Missing amount under MAR") + 
-  theme(legend.title=element_blank(),
-        axis.text = element_text(size=text_size),
-        strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size),
-        legend.text=element_text(size=text_size))
 
 emf("td_pb_mar_mcar.emf", width = 16, height = 10)
 ggarrange(plot_mcar_pb, plot_mar_pb, ncol = 1, labels = "AUTO")
