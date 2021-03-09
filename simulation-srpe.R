@@ -315,6 +315,21 @@ for(i in 1:n_sim){
 }
 options(warn=0)
 
+#------------------------------------------------to check if having position changes the results
+folder_fits = paste0(base_folder, "srpe_fits_pos\\")
+folder_imps = paste0(base_folder, "srpe_imps_pos\\")
+
+options(warn=-1)
+set.seed = 1234
+n_sim = 1900
+for(i in 1:n_sim){
+  # walk will run the function for each missing proportion in the vector
+  # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+}
+options(warn=0)
+
 #------------------------------------------------------Step-by-step process of the simulation below-------------------------------------------------
 # Either for understanding or troubleshooting, 
 # the functions above are broken down step-by-step
