@@ -19,10 +19,10 @@ d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td
 keyvars = c("p_id", "training_date", "mc_day", "week_nr")
 
 # choose between a dataset with or without sRPE:
+d_td = na.omit(d_td_full) %>%
+       select(all_of(keyvars), position, td = total_distance_daily, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
 # d_td = na.omit(d_td_full) %>% 
-#        select(all_of(keyvars), td = total_distance_daily, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
-d_td = na.omit(d_td_full) %>% 
-  select(all_of(keyvars), td = total_distance_daily, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily, srpe)
+#   select(all_of(keyvars), position, td = total_distance_daily, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily, srpe)
 
 # adding a variable for match
 # under the assumption that this is very predictive of total distance
@@ -297,12 +297,11 @@ for(i in 1:n_sim){
 }
 options(warn=0)
 
-# to check if results are different if spre is included or not
+#-------------- to check if results are different if spre is included or not
 
 # performing simulations with n runs
 # the warnings are caused by collinearity between the variables
 # which is expected
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
 folder_fits = paste0(base_folder, "td_fits_srpe\\")
 folder_imps = paste0(base_folder, "td_imps_srpe\\")
 
@@ -310,8 +309,23 @@ options(warn=-1)
 set.seed = 1234
 n_sim = 1900
 for(i in 1:n_sim){
-  # walk will run the function for each missing proportion in the vector
-  # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+}
+options(warn=0)
+
+#-------------- to check if results are different if player position is included
+
+# performing simulations with n runs
+# the warnings are caused by collinearity between the variables
+# which is expected
+folder_fits = paste0(base_folder, "td_fits_srpe_pos\\")
+folder_imps = paste0(base_folder, "td_imps_srpe_pos\\")
+
+options(warn=-1)
+set.seed = 1234
+n_sim = 1900
+for(i in 1:n_sim){
   missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
   missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
 }
@@ -357,3 +371,20 @@ for(i in 1:n_sim){
   missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
 }
 options(warn=0)
+
+#---------------------------- finally, if all gPS are missing, but position is available
+folder_fits = paste0(base_folder, "td_fits_nogps_pos\\")
+folder_imps = paste0(base_folder, "td_imps_nogps_pos\\")
+
+options(warn=-1)
+set.seed = 1234
+n_sim = 1900
+for(i in 114:n_sim){
+  # walk will run the function for each missing proportion in the vector
+  # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+}
+options(warn=0)
+
+
