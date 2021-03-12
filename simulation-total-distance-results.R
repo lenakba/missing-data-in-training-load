@@ -231,24 +231,43 @@ dev.off()
 #--------------------------------Read data and calculate performance measures on the raw data
 
 # where the imputed datasets are saved
-folder_imps = paste0(base_folder, "td_imps\\")
-n_sim= 5
+folder_imps_nogps_pos = paste0(base_folder, "td_imps_nogps_pos\\")
+n_sim = 1
 # we assume it is the same number of simulations for both simulations
 # reading the simulated imputation datasets
-files_imps = list.files(path = folder_imps)
-d_imp = data.frame()
+d_imp_nogps_pos = data.frame()
 for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_imps, i,"_d_td_imps_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_imps, i,"_d_td_imps_mar_",.,".rds"))) %>% bind_rows()
-  d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_imps_nogps_pos, i,"_d_td_imps_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_imps_nogps_pos, i,"_d_td_imps_mar_",.,".rds"))) %>% bind_rows()
+  d_imp_nogps_pos = rbind(d_imp_nogps_pos, temp_data_mcar, temp_data_mar)
 }
 
-perf_esimates_impvalues = d_imp %>% filter(method != "Complete Case Analysis", imp_place == 1) %>% 
+d_impdata = d_imp_nogps_pos %>% filter((method == "Complete Case Analysis" & imp_place == 0)  | (method != "Complete Case Analysis" & imp_place == 1), missing_type == "mcar", missing_amount == 0.5)
+d_realdata = d_imp_nogps_pos %>% filter(method != "Complete Case Analysis", missing_type == "mcar", missing_amount == 0.5)
+
+text_size = 16  
+ggplot(d_impdata, aes(x=td, group = dataset_n)) +
+  facet_wrap(~method, scales = "free") + 
+  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
+  geom_density(data = d_realdata, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
+  xlab("Total Distance") +
+  theme_line(text_size) +
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) 
+
+
+
+#TODO? calc performance measures of imputed values
+perf_esimates_impvalues = d_imp_nogps_pos %>% filter(method != "Complete Case Analysis", imp_place == 1) %>% 
   group_by(missing_type, missing_amount, method) %>% 
   summarise(rb = raw_bias(td, target),
             pb = percent_bias(td, target),
-            rmse = rmse(td, target),
-            mcse_rmse = mcse_rmse(td, target, n_sim)) %>% 
+            rmse = rmse(td, target)) %>% 
   arrange(missing_type, missing_amount, rmse)
 
 ## TODO visualize imputations
@@ -261,18 +280,3 @@ perf_esimates_impvalues = d_imp %>% filter(method != "Complete Case Analysis", i
 
 # nested-loop-plot?
 
-
-# dotplot version
-# plot_mar_pb =  ggplot(d_fig_mar_all, aes(x = pb, y = method)) + 
-#   facet_wrap(c("missing_amount", "var_combo")) +
-#   geom_vline(xintercept = 0, size = 1, alpha = 0.3, colour = bjsm_blue) +
-#   geom_vline(xintercept = 0.05, size = 1, alpha = 0.3) +
-#   geom_vline(xintercept = -0.05, size = 1, alpha = 0.3) +
-#   geom_point(size = 3) + 
-#   theme_dot() + 
-#   xlab("Percent Bias") +
-#   ylab(NULL) +
-#   scale_x_continuous(labels = axis_percent) +
-#   theme(axis.text = element_text(size=text_size),
-#         strip.text.x = element_text(size = text_size),
-#         axis.title =  element_text(size=text_size))
