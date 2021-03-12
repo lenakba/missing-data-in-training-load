@@ -46,22 +46,37 @@ d_fit_estimates_td %>%
 # using target coefficient is ideal
 # the real coefficient is: 0.003
 target_coef = 0.0003
-d_fit_estimates_td = d_fit_estimates %>% 
-  mutate(target_est = target_coef) %>% 
-  filter(term == "td", method != "No Imputation")
 
-perf_estimates_targetcoef = d_fit_estimates_td %>% 
-  group_by(method, missing_type, missing_amount) %>% 
-  summarise(rb = raw_bias(estimate, target_est),
-            pb = percent_bias(estimate, target_est),
-            rmse = rmse(estimate, target_est),
-            coverage = coverage(CI_low, CI_high, target_est, n()),
-            average_width = average_width(CI_low, CI_high),
-            power = power(p, n()),
-            mcse_bias = mcse_bias(estimate, target_est, n_sim),
-            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
-            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
+add_target = function(d_estimates, target){
+  d_estimates = d_estimates %>% 
+    mutate(target_est = target) %>% 
+    filter(term == "td", method != "No Imputation")
+  d_estimates
+}
+
+d_fit_estimates_td = add_target(d_fit_estimates, target_coef)
+
+
+calc_perf_params = function(d_td, var_extra, var_gps){
+  perf_estimates_targetcoef = d_td %>% 
+    group_by(method, missing_type, missing_amount) %>% 
+    summarise(rb = raw_bias(estimate, target_est),
+              pb = percent_bias(estimate, target_est),
+              rmse = rmse(estimate, target_est),
+              coverage = coverage(CI_low, CI_high, target_est, n()),
+              average_width = average_width(CI_low, CI_high),
+              power = power(p, n()),
+              mcse_bias = mcse_bias(estimate, target_est, n_sim),
+              mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
+              mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
+    arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
+  perf_estimates_targetcoef %>% 
+    mutate(var_extra = var_extra, 
+           var_gps = var_gps)
+  perf_estimates_targetcoef
+}
+
+perf_estimates_targetcoef = calc_perf_params(d_fit_estimates_td, "No extra variables", "Total Distance Only")
 
 # save to csv
 # save results
