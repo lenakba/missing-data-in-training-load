@@ -15,14 +15,15 @@ library(mice) # multiple imputation package
 source("performance-measure-functions.R", encoding = "UTF-8")
 
 #--------------------------------Read data and calculate performance measures on model fits
-
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_fits = paste0(base_folder, "td_fits\\")
 
 # vector of chosen missing proportions
 # if we ever want to change it or add more proportions, easily done here.
 missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
+
+#------------no extra variables, missing in total distance only
+folder_fits = paste0(base_folder, "td_fits\\")
 
 # reading the simulated results from fits
 files_fits = list.files(path = folder_fits)
@@ -41,6 +42,58 @@ d_fit_estimates_td %>%
   group_by(method, missing_amount) %>% 
   summarise(variance_est = var(rb, na.rm = TRUE), n_sim = (variance_est^2)/0.25)
 
+#------------sRPE, missing in total distance only
+# folder of fits for the srpe version
+folder_fits_srpe = paste0(base_folder, "td_fits_srpe\\")
+
+# reading the simulated results from fits
+files_fits_srpe = list.files(path = folder_fits_srpe)
+n_sim = length(files_fits_srpe)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+d_fit_estimates_srpe = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_srpe = rbind(d_fit_estimates_srpe, temp_data_mcar, temp_data_mar)
+}
+
+#-----------No extra variables, missing in all GPS variables
+folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
+
+# reading the simulated results from fits
+files_fits_nogps = list.files(path = folder_fits_nogps)
+n_sim = length(files_fits_nogps)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+d_fit_estimates_nogps = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_nogps = rbind(d_fit_estimates_nogps, temp_data_mcar, temp_data_mar)
+}
+
+#----------- Both sRPE and player position, missing only in total distance
+folder_fits_srpe_pos = paste0(base_folder, "td_fits_srpe_pos\\")
+
+# reading the simulated results from fits
+files_fits_srpe_pos = list.files(path = folder_fits_srpe_pos)
+n_sim = length(files_fits_srpe_pos)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+d_fit_estimates_srpe_pos = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_srpe_pos = rbind(d_fit_estimates_srpe_pos, temp_data_mcar, temp_data_mar)
+}
+
+#----------------Player position alone, missing in all GPS variables
+folder_fits_nogps_pos = paste0(base_folder, "td_fits_nogps_pos\\")
+
+# reading the simulated results from fits
+files_fits_nogps_pos = list.files(path = folder_fits_nogps_pos)
+n_sim = length(files_fits_nogps_pos)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+d_fit_estimates_nogps_pos = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_nogps_pos = rbind(d_fit_estimates_nogps_pos, temp_data_mcar, temp_data_mar)
+}
 
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
 # using target coefficient is ideal
@@ -55,7 +108,10 @@ add_target = function(d_estimates, target){
 }
 
 d_fit_estimates_td = add_target(d_fit_estimates, target_coef)
-
+d_fit_estimates_td_srpe = add_target(d_fit_estimates_srpe, target_coef)
+d_fit_estimates_td_nogps = add_target(d_fit_estimates_nogps, target_coef)
+d_fit_estimates_td_srpe_pos = add_target(d_fit_estimates_srpe_pos, target_coef)
+d_fit_estimates_td_nogps_pos = add_target(d_fit_estimates_nogps_pos, target_coef)
 
 calc_perf_params = function(d_td, var_extra, var_gps){
   perf_estimates_targetcoef = d_td %>% 
@@ -76,155 +132,22 @@ calc_perf_params = function(d_td, var_extra, var_gps){
   perf_estimates_targetcoef
 }
 
-perf_estimates_targetcoef = calc_perf_params(d_fit_estimates_td, "No extra variables", "Total Distance Only")
-
-# save to csv
-# save results
-# write_delim is preferable, but write_excel_csv is required for excel to understand
-# that the file encoding is UTF-8
-write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_td.csv", delim = ";", na = "")
-
-#--------------------------------------------is there any difference for having sRPE, and having no gps, vs. missing total distance without sRPE?
-# folder of fits for the srpe version
-folder_fits_srpe = paste0(base_folder, "td_fits_srpe\\")
-
-# reading the simulated results from fits
-files_fits_srpe = list.files(path = folder_fits_srpe)
-n_sim = length(files_fits_srpe)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
-d_fit_estimates_srpe = data.frame()
-for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
-  d_fit_estimates_srpe = rbind(d_fit_estimates_srpe, temp_data_mcar, temp_data_mar)
-}
-
-d_fit_estimates_td_srpe = d_fit_estimates_srpe %>% 
-  mutate(target_est = target_coef) %>% 
-  filter(term == "td", method != "No Imputation")
-
-perf_estimates_targetcoef_srpe = d_fit_estimates_td_srpe %>% 
-  group_by(method, missing_type, missing_amount) %>% 
-  summarise(rb = raw_bias(estimate, target_est),
-            pb = percent_bias(estimate, target_est),
-            rmse = rmse(estimate, target_est),
-            coverage = coverage(CI_low, CI_high, target_est, n()),
-            average_width = average_width(CI_low, CI_high),
-            power = power(p, n()),
-            mcse_bias = mcse_bias(estimate, target_est, n_sim),
-            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
-            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()  %>% 
-  mutate(var_extra = "sRPE", 
-         var_gps = "Total Distance Only")
-
-# same for no gps data
-folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
-
-# reading the simulated results from fits
-files_fits_nogps = list.files(path = folder_fits_nogps)
-n_sim = length(files_fits_nogps)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
-d_fit_estimates_nogps = data.frame()
-for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
-  d_fit_estimates_nogps = rbind(d_fit_estimates_nogps, temp_data_mcar, temp_data_mar)
-}
-
-d_fit_estimates_td_nogps = d_fit_estimates_nogps %>% 
-  mutate(target_est = target_coef) %>% 
-  filter(term == "td", method != "No Imputation")
-
-perf_estimates_targetcoef_nogps = d_fit_estimates_td_nogps %>% 
-  group_by(method, missing_type, missing_amount) %>% 
-  summarise(rb = raw_bias(estimate, target_est),
-            pb = percent_bias(estimate, target_est),
-            rmse = rmse(estimate, target_est),
-            coverage = coverage(CI_low, CI_high, target_est, n()),
-            average_width = average_width(CI_low, CI_high),
-            power = power(p, n()),
-            mcse_bias = mcse_bias(estimate, target_est, n_sim),
-            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
-            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "No extra information") %>% 
-  mutate(var_extra = "No extra variables", 
-         var_gps = "All GPS")
-
-
-
-# folder of fits for the srpe and position version
-folder_fits_srpe_pos = paste0(base_folder, "td_fits_srpe_pos\\")
-
-# reading the simulated results from fits
-files_fits_srpe_pos = list.files(path = folder_fits_srpe_pos)
-n_sim = length(files_fits_srpe_pos)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
-d_fit_estimates_srpe_pos = data.frame()
-for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
-  d_fit_estimates_srpe_pos = rbind(d_fit_estimates_srpe_pos, temp_data_mcar, temp_data_mar)
-}
-
-d_fit_estimates_td_srpe_pos = d_fit_estimates_srpe_pos %>% 
-  mutate(target_est = target_coef) %>% 
-  filter(term == "td", method != "No Imputation")
-
-perf_estimates_targetcoef_srpe_pos = d_fit_estimates_td_srpe_pos %>% 
-  group_by(method, missing_type, missing_amount) %>% 
-  summarise(rb = raw_bias(estimate, target_est),
-            pb = percent_bias(estimate, target_est),
-            rmse = rmse(estimate, target_est),
-            coverage = coverage(CI_low, CI_high, target_est, n()),
-            average_width = average_width(CI_low, CI_high),
-            power = power(p, n()),
-            mcse_bias = mcse_bias(estimate, target_est, n_sim),
-            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
-            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% 
-  mutate(var_extra = "Player position and sRPE", 
-         var_gps = "Total Distance Only")
-
-
-# folder of fits for the srpe and position version
-folder_fits_nogps_pos = paste0(base_folder, "td_fits_nogps_pos\\")
-
-# reading the simulated results from fits
-files_fits_nogps_pos = list.files(path = folder_fits_nogps_pos)
-n_sim = length(files_fits_nogps_pos)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
-d_fit_estimates_nogps_pos = data.frame()
-for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
-  d_fit_estimates_nogps_pos = rbind(d_fit_estimates_nogps_pos, temp_data_mcar, temp_data_mar)
-}
-
-d_fit_estimates_td_nogps_pos = d_fit_estimates_nogps_pos %>% 
-  mutate(target_est = target_coef) %>% 
-  filter(term == "td", method != "No Imputation")
-
-perf_estimates_targetcoef_nogps_pos = d_fit_estimates_td_nogps_pos %>% 
-  group_by(method, missing_type, missing_amount) %>% 
-  summarise(rb = raw_bias(estimate, target_est),
-            pb = percent_bias(estimate, target_est),
-            rmse = rmse(estimate, target_est),
-            coverage = coverage(CI_low, CI_high, target_est, n()),
-            average_width = average_width(CI_low, CI_high),
-            power = power(p, n()),
-            mcse_bias = mcse_bias(estimate, target_est, n_sim),
-            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
-            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% 
-  ungroup() %>% 
-  mutate(var_extra = "Player position", 
-         var_gps = "All GPS")
-
-
-
-# adding name onto original simulation
-perf_estimates_targetcoef = perf_estimates_targetcoef  %>% 
-  mutate(var_extra = "No extra variables", 
-         var_gps = "Total Distance Only")
+tot_only = "Total Distance Only"
+all_gps = "All GPS"
+perf_estimates_targetcoef = calc_perf_params(d_fit_estimates_td, "No extra variables", tot_only)
+perf_estimates_targetcoef_srpe = calc_perf_params(d_fit_estimates_td_srpe, "sRPE", tot_only)
+perf_estimates_targetcoef_nogps = calc_perf_params(d_fit_estimates_nogps, "No extra variables", all_gps)
+perf_estimates_targetcoef_srpe_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player position and sRPE", tot_only)
+perf_estimates_targetcoef_nogps_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player Position", all_gps)
 
 # combining into 1 dataset
+fit_estimates_all = bind_rows(
+  d_fit_estimates_td,
+  d_fit_estimates_td_srpe,
+  d_fit_estimates_td_nogps,
+  d_fit_estimates_td_srpe_pos,
+  d_fit_estimates_td_nogps_pos
+)
 perf_estimates_all = bind_rows(
   perf_estimates_targetcoef,
   perf_estimates_targetcoef_srpe,
@@ -233,6 +156,7 @@ perf_estimates_all = bind_rows(
   perf_estimates_targetcoef_nogps
 )
 # save to csv
+write_excel_csv(fit_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
 write_excel_csv(perf_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
 
 #--------------- Figures
