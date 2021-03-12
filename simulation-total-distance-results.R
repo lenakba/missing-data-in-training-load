@@ -21,13 +21,15 @@ base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulatio
 # if we ever want to change it or add more proportions, easily done here.
 missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
+n_missingvariations = length(missing_prop_mcar) + length(missing_prop_mar)
+
 
 #------------no extra variables, missing in total distance only
 folder_fits = paste0(base_folder, "td_fits\\")
 
 # reading the simulated results from fits
 files_fits = list.files(path = folder_fits)
-n_sim = length(files_fits)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+n_sim = length(files_fits)/n_missingvariations # divide by the number of missing type and level combinations
 d_fit_estimates = data.frame()
 for(i in 1:n_sim){
   temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
@@ -35,20 +37,11 @@ for(i in 1:n_sim){
   d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
 }
 
-# number of permutations needed for MCSE for bias of 0.5
-d_fit_estimates_td %>% 
-  filter(rep <= 100) %>% 
-  mutate(rb = estimate - target_est) %>% 
-  group_by(method, missing_amount) %>% 
-  summarise(variance_est = var(rb, na.rm = TRUE), n_sim = (variance_est^2)/0.25)
-
 #------------sRPE, missing in total distance only
 # folder of fits for the srpe version
 folder_fits_srpe = paste0(base_folder, "td_fits_srpe\\")
-
-# reading the simulated results from fits
 files_fits_srpe = list.files(path = folder_fits_srpe)
-n_sim = length(files_fits_srpe)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+n_sim = length(files_fits_srpe)/n_missingvariations
 d_fit_estimates_srpe = data.frame()
 for(i in 1:n_sim){
   temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
@@ -58,10 +51,8 @@ for(i in 1:n_sim){
 
 #-----------No extra variables, missing in all GPS variables
 folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
-
-# reading the simulated results from fits
 files_fits_nogps = list.files(path = folder_fits_nogps)
-n_sim = length(files_fits_nogps)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+n_sim = length(files_fits_nogps)/n_missingvariations 
 d_fit_estimates_nogps = data.frame()
 for(i in 1:n_sim){
   temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
@@ -71,10 +62,8 @@ for(i in 1:n_sim){
 
 #----------- Both sRPE and player position, missing only in total distance
 folder_fits_srpe_pos = paste0(base_folder, "td_fits_srpe_pos\\")
-
-# reading the simulated results from fits
 files_fits_srpe_pos = list.files(path = folder_fits_srpe_pos)
-n_sim = length(files_fits_srpe_pos)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+n_sim = length(files_fits_srpe_pos)/n_missingvariations 
 d_fit_estimates_srpe_pos = data.frame()
 for(i in 1:n_sim){
   temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
@@ -84,10 +73,8 @@ for(i in 1:n_sim){
 
 #----------------Player position alone, missing in all GPS variables
 folder_fits_nogps_pos = paste0(base_folder, "td_fits_nogps_pos\\")
-
-# reading the simulated results from fits
 files_fits_nogps_pos = list.files(path = folder_fits_nogps_pos)
-n_sim = length(files_fits_nogps_pos)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+n_sim = length(files_fits_nogps_pos)/n_missingvariations
 d_fit_estimates_nogps_pos = data.frame()
 for(i in 1:n_sim){
   temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
@@ -112,6 +99,13 @@ d_fit_estimates_td_srpe = add_target(d_fit_estimates_srpe, target_coef)
 d_fit_estimates_td_nogps = add_target(d_fit_estimates_nogps, target_coef)
 d_fit_estimates_td_srpe_pos = add_target(d_fit_estimates_srpe_pos, target_coef)
 d_fit_estimates_td_nogps_pos = add_target(d_fit_estimates_nogps_pos, target_coef)
+
+# number of permutations needed for MCSE for bias of 0.5
+d_fit_estimates_td %>% 
+  filter(rep <= 100) %>% 
+  mutate(rb = estimate - target_est) %>% 
+  group_by(method, missing_amount) %>% 
+  summarise(variance_est = var(rb, na.rm = TRUE), n_sim = (variance_est^2)/0.25)
 
 calc_perf_params = function(d_td, var_extra, var_gps){
   perf_estimates_targetcoef = d_td %>% 
