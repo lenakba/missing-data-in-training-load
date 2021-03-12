@@ -155,7 +155,9 @@ perf_estimates_targetcoef_srpe = d_fit_estimates_td_srpe %>%
             mcse_bias = mcse_bias(estimate, target_est, n_sim),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "Major Information")
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()  %>% 
+  mutate(var_extra = "sRPE", 
+         var_gps = "Total Distance Only")
 
 # same for no gps data
 folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
@@ -185,7 +187,10 @@ perf_estimates_targetcoef_nogps = d_fit_estimates_td_nogps %>%
             mcse_bias = mcse_bias(estimate, target_est, n_sim),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "No extra information")
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "No extra information") %>% 
+  mutate(var_extra = "No extra variables", 
+         var_gps = "All GPS")
+
 
 
 # folder of fits for the srpe and position version
@@ -216,20 +221,65 @@ perf_estimates_targetcoef_srpe_pos = d_fit_estimates_td_srpe_pos %>%
             mcse_bias = mcse_bias(estimate, target_est, n_sim),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "Maximum Information")
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% 
+  mutate(var_extra = "Player position and sRPE", 
+         var_gps = "Total Distance Only")
+
+
+# folder of fits for the srpe and position version
+folder_fits_nogps_pos = paste0(base_folder, "td_fits_nogps_pos\\")
+
+# reading the simulated results from fits
+files_fits_nogps_pos = list.files(path = folder_fits_nogps_pos)
+n_sim = length(files_fits_nogps_pos)/(length(missing_prop_mcar) + length(missing_prop_mar)) # divide by the number of missing type and level combinations
+d_fit_estimates_nogps_pos = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_nogps_pos = rbind(d_fit_estimates_nogps_pos, temp_data_mcar, temp_data_mar)
+}
+
+d_fit_estimates_td_nogps_pos = d_fit_estimates_nogps_pos %>% 
+  mutate(target_est = target_coef) %>% 
+  filter(term == "td", method != "No Imputation")
+
+perf_estimates_targetcoef_nogps_pos = d_fit_estimates_td_nogps_pos %>% 
+  group_by(method, missing_type, missing_amount) %>% 
+  summarise(rb = raw_bias(estimate, target_est),
+            pb = percent_bias(estimate, target_est),
+            rmse = rmse(estimate, target_est),
+            coverage = coverage(CI_low, CI_high, target_est, n()),
+            average_width = average_width(CI_low, CI_high),
+            power = power(p, n()),
+            mcse_bias = mcse_bias(estimate, target_est, n_sim),
+            mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
+            mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
+  arrange(missing_type, missing_amount, desc(rmse)) %>% 
+  ungroup() %>% 
+  mutate(var_extra = "Player position", 
+         var_gps = "All GPS")
+
 
 
 # adding name onto original simulation
-perf_estimates_targetcoef = perf_estimates_targetcoef %>% mutate(var_combo = "Medium Information")
+perf_estimates_targetcoef = perf_estimates_targetcoef  %>% 
+  mutate(var_extra = "No extra variables", 
+         var_gps = "Total Distance Only")
 
 # combining into 1 dataset
-perf_estimates_all = bind_rows(perf_estimates_targetcoef, perf_estimates_targetcoef_nogps, perf_estimates_targetcoef_srpe, perf_estimates_targetcoef_srpe_pos)
+perf_estimates_all = bind_rows(
+  perf_estimates_targetcoef,
+  perf_estimates_targetcoef_srpe,
+  perf_estimates_targetcoef_srpe_pos,
+  perf_estimates_targetcoef_nogps_pos,
+  perf_estimates_targetcoef_nogps
+)
 # save to csv
 write_excel_csv(perf_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
 
 #--------------- Figures
 d_fig_all = perf_estimates_all %>% 
-            select(method, missing_type, missing_amount, pb, rmse, var_combo) %>% mutate(pb = pb/100) %>% 
+            select(method, missing_type, missing_amount, pb, rmse, var_extra, var_gps) %>% mutate(pb = pb/100) %>% 
             mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
                                       method == "Mean Imputation - Mean per week" ~ "Mean per week",
                                       TRUE ~ method))
@@ -243,7 +293,7 @@ library(devEMF) # for saving emf files
 text_size = 16
 
 plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
-  facet_wrap(~var_combo) + 
+  facet_wrap(c("var_extra", "var_gps"), ncol = 2, scales= "free") + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
   geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
@@ -251,19 +301,28 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
   geom_point(size = 2) +
   theme_line(text_size, legend = TRUE) +
   scale_color_manual(values = nih_distinct) +
-  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0), limits = c(-0.5, 0.25)) +
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0)) +
   ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS"))
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
+  coord_cartesian(ylim = c(-0.4, 0.25))
+
 
 emf("td_pb_mcar.emf", width = 12, height = 8)
 plot_mcar_pb
 dev.off()
 
 plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = method, color = method)) +
-  facet_wrap(~var_combo) + 
+  facet_wrap(c("var_extra", "var_gps"), ncol = 2, scales = "free") + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
   geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
@@ -273,10 +332,17 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
   scale_color_manual(values = nih_distinct) +
   ylab("% Bias") + 
   xlab("Missing amount under MAR") + 
-  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0), limits = c(-0.5, 0.25))  +
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS"))
-
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
+  coord_cartesian(ylim = c(-0.3, 0.25))
 
 emf("td_pb_mar.emf", width = 12, height = 8)
 plot_mar_pb
