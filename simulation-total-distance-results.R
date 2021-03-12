@@ -84,63 +84,6 @@ perf_estimates_targetcoef = calc_perf_params(d_fit_estimates_td, "No extra varia
 # that the file encoding is UTF-8
 write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_td.csv", delim = ";", na = "")
 
-#------------------- figures
-d_fig = perf_estimates_targetcoef %>% select(method, missing_type, missing_amount, pb, rmse) %>% mutate(pb = pb/100)
-
-d_fig_mcar = d_fig %>% filter(missing_type == "mcar")
-d_fig_mar = d_fig %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light MAR",
-                                                                                          missing_amount == "medium" ~ "Medium MAR",
-                                                                                          missing_amount == "strong" ~ "Strong MAR"))
-
-library(lmisc) # ggplot2 themes
-text_size = 13
-plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
-  geom_hline(yintercept = 0, size = 1, alpha = 0.3) +
-  geom_line(size = 1) +
-  geom_point(size = 2) +
-  theme_line() +
-  scale_y_continuous(labels = axis_percent) +
-  ylab("Percent\nBias") + 
-  xlab("% Missing under MCAR") + 
-  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
-  theme(legend.title=element_blank(),
-        axis.text = element_text(size=text_size),
-        strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
-
-plot_mcar_rmse = ggplot(d_fig_mcar,  aes(x = as.numeric(missing_amount), y = rmse, group = method, color = method)) +
-  geom_line(size = 1) +
-  geom_point(size = 2) +
-  theme_line() +
-  ylab("RMSE") + 
-  xlab("% Missing under MCAR") +
-  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
-  theme(legend.title=element_blank(),
-        axis.text = element_text(size=text_size),
-        strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
-
-plot_mar_pb = ggplot(d_fig_mar, aes(x = pb, y = method)) + 
-  facet_wrap(~missing_amount) +
-  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
-  theme_barh() +
-  xlab("Percent Bias") +
-  ylab(NULL) +
-  scale_x_continuous(labels = axis_percent) +
-  theme(axis.text = element_text(size=text_size),
-        strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
-
-plot_mar_rmse = ggplot(d_fig_mar, aes(x = rmse, y = method)) + 
-  facet_wrap(~missing_amount) +
-  ggstance::geom_barh(stat = "identity", fill = bjsm_blue) + 
-  theme_barh() +
-  xlab("Root-Mean-Squared Error (RMSE)") +
-  ylab(NULL) +
-  theme(axis.text = element_text(size=text_size),
-        strip.text.x = element_text(size = text_size),
-        axis.title =  element_text(size=text_size))
-
 #--------------------------------------------is there any difference for having sRPE, and having no gps, vs. missing total distance without sRPE?
 # folder of fits for the srpe version
 folder_fits_srpe = paste0(base_folder, "td_fits_srpe\\")
