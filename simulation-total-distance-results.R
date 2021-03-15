@@ -82,6 +82,18 @@ for(i in 1:n_sim){
   d_fit_estimates_nogps_pos = rbind(d_fit_estimates_nogps_pos, temp_data_mcar, temp_data_mar)
 }
 
+#----------------Player position and sRPE, missing in all gps variables
+folder_fits_nogps_srpe_pos = paste0(base_folder, "td_fits_nogps_srpe_pos\\")
+files_fits_nogps_srpe_pos = list.files(path = folder_fits_nogps_srpe_pos)
+n_sim = length(files_fits_nogps_srpe_pos)/n_missingvariations
+d_fit_estimates_nogps_srpe_pos = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_nogps_srpe_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_nogps_srpe_pos = rbind(d_fit_estimates_nogps_srpe_pos, temp_data_mcar, temp_data_mar)
+}
+
+
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
 # using target coefficient is ideal
 # the real coefficient is: 0.003
@@ -99,6 +111,7 @@ d_fit_estimates_td_srpe = add_target(d_fit_estimates_srpe, target_coef)
 d_fit_estimates_td_nogps = add_target(d_fit_estimates_nogps, target_coef)
 d_fit_estimates_td_srpe_pos = add_target(d_fit_estimates_srpe_pos, target_coef)
 d_fit_estimates_td_nogps_pos = add_target(d_fit_estimates_nogps_pos, target_coef)
+d_fit_estimates_td_nogps_srpe_pos = add_target(d_fit_estimates_nogps_srpe_pos, target_coef)
 
 # number of permutations needed for MCSE for bias of 0.5
 d_fit_estimates_td %>% 
@@ -133,6 +146,7 @@ perf_estimates_targetcoef_srpe = calc_perf_params(d_fit_estimates_td_srpe, "sRPE
 perf_estimates_targetcoef_nogps = calc_perf_params(d_fit_estimates_nogps, "No extra variables", all_gps)
 perf_estimates_targetcoef_srpe_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player position and sRPE", tot_only)
 perf_estimates_targetcoef_nogps_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player Position", all_gps)
+perf_estimates_targetcoef_nogps_srpe_pos = calc_perf_params(d_fit_estimates_td_nogps_srpe_pos, "Player position and sRPE", all_gps)
 
 # combining into 1 dataset
 fit_estimates_all = bind_rows(
@@ -140,18 +154,20 @@ fit_estimates_all = bind_rows(
   d_fit_estimates_td_srpe,
   d_fit_estimates_td_nogps,
   d_fit_estimates_td_srpe_pos,
-  d_fit_estimates_td_nogps_pos
+  d_fit_estimates_td_nogps_pos,
+  d_fit_estimates_td_nogps_srpe_pos
 )
 perf_estimates_all = bind_rows(
   perf_estimates_targetcoef,
   perf_estimates_targetcoef_srpe,
   perf_estimates_targetcoef_srpe_pos,
   perf_estimates_targetcoef_nogps_pos,
-  perf_estimates_targetcoef_nogps
+  perf_estimates_targetcoef_nogps,
+  perf_estimates_targetcoef_nogps_srpe_pos
 )
 # save to csv
 write_excel_csv(fit_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
-write_excel_csv(perf_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
+write_excel_csv(perf_estimates_all, "simulation_results_perfparams_td.csv", delim = ";", na = "")
 
 #--------------- Figures
 d_fig_all = perf_estimates_all %>% 
@@ -242,15 +258,27 @@ for(i in 1:n_sim){
   d_imp_nogps_pos = rbind(d_imp_nogps_pos, temp_data_mcar, temp_data_mar)
 }
 
-d_impdata = d_imp_nogps_pos %>% filter((method == "Complete Case Analysis" & imp_place == 0)  | (method != "Complete Case Analysis" & imp_place == 1), missing_type == "mcar", missing_amount == 0.5)
-d_realdata = d_imp_nogps_pos %>% filter(method != "Complete Case Analysis", missing_type == "mcar", missing_amount == 0.5)
+d_imp_nogps_pos_red = d_imp_nogps_pos %>%
+                          mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
+                          method == "Mean Imputation - Mean per week" ~ "Mean per week",
+                          TRUE ~ method))
 
-text_size = 16  
-ggplot(d_impdata, aes(x=td, group = dataset_n)) +
+# Missing Completely at Random
+d_realdata = d_imp_nogps_pos_red %>% filter(missing_type == "mcar", missing_amount == 0.5)
+d_cc_target =  d_realdata %>% filter(method == "Mean per player") %>% select(target) %>% rownames_to_column()
+d_cc = d_imp_nogps_pos_red %>% filter(method == "Complete Case Analysis", missing_type == "mcar", missing_amount == 0.5) %>% select(-target)
+d_cc = d_cc %>% rownames_to_column() %>% full_join(d_cc_target, by = "rowname") %>% fill(method)
+d_realdata = d_realdata %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc)
+d_imps = d_imp_nogps_pos_red %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mcar", missing_amount == 0.5)
+d_impdata = bind_rows(d_cc, d_imps)
+
+text_size = 18  
+plot_mcar = ggplot(d_impdata, aes(x=td, group = dataset_n)) +
   facet_wrap(~method, scales = "free") + 
-  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
   geom_density(data = d_realdata, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
-  xlab("Total Distance") +
+  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
+  xlab("Total Distance (M)") +
+  ylab("Density") + 
   theme_line(text_size) +
   theme(panel.border = element_blank(), 
         panel.background = element_blank(),
@@ -260,6 +288,37 @@ ggplot(d_impdata, aes(x=td, group = dataset_n)) +
         strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
         axis.ticks = element_line(color = nih_distinct[4])) 
 
+# Missing at Random
+d_realdata_mar = d_imp_nogps_pos_red %>% filter(missing_type == "mar", missing_amount == "strong")
+d_cc_target_mar =  d_realdata_mar %>% filter(method == "Mean per player") %>% select(target) %>% rownames_to_column()
+d_cc_mar = d_imp_nogps_pos_red %>% filter(method == "Complete Case Analysis", missing_type == "mar", missing_amount == "strong") %>% select(-target)
+d_cc_mar = d_cc_mar %>% rownames_to_column() %>% full_join(d_cc_target, by = "rowname") %>% fill(method)
+d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc)
+d_imps_mar = d_imp_nogps_pos_red %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mar", missing_amount == "strong")
+d_impdata_mar = bind_rows(d_cc_mar, d_imps_mar)
+
+plot_mar = ggplot(d_impdata_mar, aes(x=td, group = dataset_n)) +
+  facet_wrap(~method, scales = "free") + 
+  geom_density(data = d_realdata_mar, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
+  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
+  xlab("Total Distance (M)") +
+  ylab("Density") + 
+  theme_line(text_size) +
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) 
+
+emf("td_imp_vs_real_mar.emf", width = 12, height = 8)
+plot_mar
+dev.off()
+
+emf("td_imp_vs_real_mcar.emf", width = 12, height = 8)
+plot_mcar
+dev.off()
 
 
 #TODO? calc performance measures of imputed values
