@@ -108,8 +108,8 @@ add_target = function(d_estimates, target){
 
 d_fit_estimates_td = add_target(d_fit_estimates, target_coef)
 d_fit_estimates_td_srpe = add_target(d_fit_estimates_srpe, target_coef)
-d_fit_estimates_td_nogps = add_target(d_fit_estimates_nogps, target_coef)
 d_fit_estimates_td_srpe_pos = add_target(d_fit_estimates_srpe_pos, target_coef)
+d_fit_estimates_td_nogps = add_target(d_fit_estimates_nogps, target_coef)
 d_fit_estimates_td_nogps_pos = add_target(d_fit_estimates_nogps_pos, target_coef)
 d_fit_estimates_td_nogps_srpe_pos = add_target(d_fit_estimates_nogps_srpe_pos, target_coef)
 
@@ -143,8 +143,8 @@ tot_only = "Total Distance Only"
 all_gps = "All GPS"
 perf_estimates_targetcoef = calc_perf_params(d_fit_estimates_td, "No extra variables", tot_only)
 perf_estimates_targetcoef_srpe = calc_perf_params(d_fit_estimates_td_srpe, "sRPE", tot_only)
-perf_estimates_targetcoef_nogps = calc_perf_params(d_fit_estimates_nogps, "No extra variables", all_gps)
 perf_estimates_targetcoef_srpe_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player position and sRPE", tot_only)
+perf_estimates_targetcoef_nogps = calc_perf_params(d_fit_estimates_nogps, "No extra variables", all_gps)
 perf_estimates_targetcoef_nogps_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player Position", all_gps)
 perf_estimates_targetcoef_nogps_srpe_pos = calc_perf_params(d_fit_estimates_td_nogps_srpe_pos, "Player position and sRPE", all_gps)
 
@@ -152,8 +152,8 @@ perf_estimates_targetcoef_nogps_srpe_pos = calc_perf_params(d_fit_estimates_td_n
 fit_estimates_all = bind_rows(
   d_fit_estimates_td,
   d_fit_estimates_td_srpe,
-  d_fit_estimates_td_nogps,
   d_fit_estimates_td_srpe_pos,
+  d_fit_estimates_td_nogps,
   d_fit_estimates_td_nogps_pos,
   d_fit_estimates_td_nogps_srpe_pos
 )
@@ -161,8 +161,8 @@ perf_estimates_all = bind_rows(
   perf_estimates_targetcoef,
   perf_estimates_targetcoef_srpe,
   perf_estimates_targetcoef_srpe_pos,
-  perf_estimates_targetcoef_nogps_pos,
   perf_estimates_targetcoef_nogps,
+  perf_estimates_targetcoef_nogps_pos,
   perf_estimates_targetcoef_nogps_srpe_pos
 )
 # save to csv
