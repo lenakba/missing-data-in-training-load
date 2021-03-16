@@ -390,7 +390,7 @@ folder_imps_nogps_pos = paste0(base_folder, "td_imps_nogps_pos\\")
 options(warn=-1)
 set.seed = 1234
 n_sim = 1900
-for(i in 114:n_sim){
+for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
   missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_pos, folder_fits_nogps_pos, folder_imps_nogps_pos, rep = i))
