@@ -13,16 +13,13 @@ folder_data = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
 
 # note that the Total Distance data is per day
 d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td_anon.csv"), delim = ";")
+d_td_full = d_td_full %>% rename(gps_td = total_distance_daily, gps_v4 = v4_distance_daily, gps_v5 = v5_distance_daily, gps_pl = player_load_daily)
 
 # remove missing
-# select vars we need in the simulation, key variables we think are correlated with the level of total distance
-keyvars = c("p_id", "training_date", "mc_day", "week_nr")
-
-# choose between a dataset with or without sRPE:
-#d_td = na.omit(d_td_full) %>%
-#       select(all_of(keyvars), position, td = total_distance_daily, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily)
-d_td = na.omit(d_td_full) %>% 
-   select(all_of(keyvars), position, td = total_distance_daily, v4 = v4_distance_daily, v5 = v5_distance_daily, pl = player_load_daily, srpe)
+# this has to be done before choosing variables so that the variables will be comparable
+# i.e. the results of having or not having sRPE and position in the dataset cannot be confused with
+# differing sample sizes due to unequal levels of missing.
+d_td = na.omit(d_td_full)
 
 # adding a variable for match
 # under the assumption that this is very predictive of total distance
@@ -39,8 +36,8 @@ log_reg = function(tl_coef){
 
 # linear logistic regression function
 # where the level of total distance effects injury probability
-inj_probability_td = function(td){
-  y = log_reg(-2 + 0.0003*td) 
+inj_probability_td = function(gps_td){
+  y = log_reg(-2 + 0.0003*gps_td) 
   y
 }
 
@@ -49,7 +46,7 @@ add_mcar_td = function(d, missing_prop){
   n_values = nrow(d)
   d = d %>% rownames_to_column()
   random_spots_td = sample(1:n_values, round(missing_prop*n_values))
-  d = d %>% mutate(td = ifelse(rowname %in% random_spots_td, NA, td)) %>% dplyr::select(-rowname)
+  d = d %>% mutate(gps_td = ifelse(rowname %in% random_spots_td, NA, gps_td)) %>% dplyr::select(-rowname)
   d
 }
 
@@ -71,7 +68,7 @@ mar_function = function(d, corr){
 add_mar_td = function(d, corr){
   d = d %>% mutate(na_prop = mar_function(., corr),
                    na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
-                   td = ifelse(na_spot_td == 1, NA, td))
+                   gps_td = ifelse(na_spot_td == 1, NA, gps_td))
   d %>% dplyr::select(-starts_with("na"))
 }
 
@@ -82,17 +79,17 @@ impute_mean = function(d, group_var){
   # calc mean
   d_imp = d %>% 
     group_by(!!group_var) %>% 
-    mutate(m_td = mean(td, na.rm = TRUE)) %>% 
+    mutate(m_td = mean(gps_td, na.rm = TRUE)) %>% 
     ungroup()
   
   # impute with the mean
-  d_imp = d_imp %>% mutate(td = ifelse(is.na(td), m_td, td)) %>% dplyr::select(-m_td)
+  d_imp = d_imp %>% mutate(gps_td = ifelse(is.na(gps_td), m_td, gps_td)) %>% dplyr::select(-m_td)
   d_imp
 }
 
 # fit our models
 fit_glm = function(d){
-  fit = glm(injury ~ td, family = "binomial", data = d)
+  fit = glm(injury ~ gps_td, family = "binomial", data = d)
   fit
 }
 
@@ -137,8 +134,8 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   # fit our models
   fit.mean.p_id = fit_glm(d.mean.p_id)
   fit.mean.week = fit_glm(d.mean.week)
-  fit.reg =  with(mids.reg, glm(injury ~ td, family = binomial))
-  fit.pmm =  with(mids.pmm, glm(injury ~ td, family = binomial))
+  fit.reg =  with(mids.reg, glm(injury ~ gps_td, family = binomial))
+  fit.pmm =  with(mids.pmm, glm(injury ~ gps_td, family = binomial))
   fit.cc =  fit_glm(d.cc)
   
   # fetch model parameters
@@ -163,7 +160,7 @@ add_target_imp = function(d, imp_rows_pos, target, method){
     mutate(imp_place = ifelse(rowname %in% imp_rows_pos, 1, 0),
            target = target,
            method = method) %>%
-    dplyr::select(method, imp_place, td, target)
+    dplyr::select(method, imp_place, gps_td, target)
   d
 }
 
@@ -181,7 +178,7 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 sim_imp = function(d_missing, target, run = 1){
   
   # find which rows have missing and need imputation
-  imp_rows_pos = which(is.na(d_missing$td))
+  imp_rows_pos = which(is.na(d_missing$gps_td))
   
   #-----------------impute using all the different methods
   # Mean imputation by the mean per player
@@ -215,7 +212,7 @@ sim_imp = function(d_missing, target, run = 1){
     bind_rows()
   
   # target column can't be added to complete case analysis, because they've been listwise deleted
-  d.cc = d.cc %>% mutate(method = "Complete Case Analysis") %>% dplyr::select(method, td)
+  d.cc = d.cc %>% mutate(method = "Complete Case Analysis") %>% dplyr::select(method, gps_td)
   
   # combine to 1 dataset
   d_imp = bind_rows(d.mean.p_id, d.mean.week, d.reg, d.pmm, d.cc) %>% tibble()
@@ -226,16 +223,18 @@ sim_imp = function(d_missing, target, run = 1){
 
 # create fake injuries
 d_td = d_td %>% 
-  mutate(inj_prop = inj_probability_td(td), 
+  mutate(inj_prop = inj_probability_td(gps_td), 
          injury = rbinom(length(inj_prop), 1, prob = inj_prop))
 
 # logistic regression for comparison
-fit.target = glm(injury ~ td, family = "binomial", data = d_td)
+fit.target = glm(injury ~ gps_td, family = "binomial", data = d_td)
 target_param = get_params(fit.target, "No Imputation")  
 
 # remove variables we in theory wouldn't know about
 # in a real life situation
-d_exdata_td = d_td %>% dplyr::select(-inj_prop)
+# select vars we need in the simulation, key variables we think are correlated with the level of total distance
+keyvars = c("p_id", "training_date", "mc_day", "week_nr")
+d_exdata = d_td %>% select(all_of(keyvars), match, injury, starts_with("gps"), position, srpe)
 
 # for missing at random, we create fake variables with correlation to the amount of missing
 # we add fake age and sex, and we use the day of the week to determine weekend
@@ -243,37 +242,44 @@ d_exdata_td = d_td %>% dplyr::select(-inj_prop)
 td_p_id = d_td %>% distinct(p_id) 
 td_id_base = td_p_id %>% mutate(age = sample(18:30, length(td_p_id$p_id), replace = TRUE),
                                     sex = sample(0:1, length(td_p_id$p_id), replace = TRUE))
-d_exdata_mar = d_exdata_td %>% 
+
+d_exdata_mar = d_exdata %>% 
   left_join(td_id_base, by = "p_id") %>% 
   mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0))
 
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
-target_col = d_td$td
+target_col = d_td$gps_td
+
+# 3 datasets with varying levels of information
+# no extra variables available
+d_exdata_td_noextra = d_exdata %>% select(-position, -srpe)
+# position available as extra variable
+d_exdata_td_pos = d_exdata %>% select(-srpe)
+# sRPE and position available as extra variable
+d_exdata_td_srpe_pos = d_exdata
+
+# same for the MAR dataset
+d_exdata_mar_noextra = d_exdata_mar %>% select(-position, -srpe)
+d_exdata_mar_pos = d_exdata_mar %>% select(-srpe)
+d_exdata_mar_srpe_pos = d_exdata_mar
 
 #####################For-loop simulation
-
-# performing simulations with n runs
-# the warnings are caused by collinearity between the variables
-# which is expected
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_fits = paste0(base_folder, "td_fits\\")
-folder_imps = paste0(base_folder, "td_imps\\")
 
 # helper function for performing all needed simulations
 # given a missing type (missing), either "mcar" or "mar"
 # and amount of missing, a proportion for mcar or "light"/"medium"/"strong" for mar
 # not that the datasets have to be ready beforehand, this is NOT a general function
-sim_impute = function(missing, missing_amount, rep){
+sim_impute = function(missing, missing_amount, d, folder_fits, folder_imps, rep){
   
   if(missing == "mcar"){
-    d_mcar = add_mcar_td(d_exdata_td, missing_amount)
+    d_mcar = add_mcar_td(d, missing_amount)
     d_sim_fits_mcar = sim_impfit(d_mcar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
     saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds"))  
     d_sim_imps_mcar = sim_imp(d_mcar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
     saveRDS(d_sim_imps_mcar, file=paste0(folder_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
     
   } else if(missing == "mar"){
-    d_mar = add_mar_td(d_exdata_mar, missing_amount)
+    d_mar = add_mar_td(d, missing_amount)
     d_sim_fits_mar = sim_impfit(d_mar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
     saveRDS(d_sim_fits_mar, file=paste0(folder_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds")) 
     d_sim_imps_mar = sim_imp(d_mar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
@@ -286,67 +292,67 @@ sim_impute = function(missing, missing_amount, rep){
 missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
 
+# base folder where all the folders for simulations are to be saved
+base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+
+#------------------------First variant with no extra variables
+folder_fits_noextra = paste0(base_folder, "td_fits\\")
+folder_imps_noextra = paste0(base_folder, "td_imps\\")
+
+# performing simulations with n runs
+# the warnings are caused by collinearity between the variables
+# which is expected
 options(warn=-1)
 set.seed = 1234
 n_sim = 1900
 for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
-  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_noextra, folder_fits_noextra, folder_imps_noextra, rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_noextra, folder_fits_noextra, folder_imps_noextra, rep = i))
 }
 options(warn=0)
 
-#-------------- to check if results are different if spre is included or not
-
-# performing simulations with n runs
-# the warnings are caused by collinearity between the variables
-# which is expected
-folder_fits = paste0(base_folder, "td_fits_srpe\\")
-folder_imps = paste0(base_folder, "td_imps_srpe\\")
+#-------------- position available
+folder_fits_pos = paste0(base_folder, "td_fits_pos\\")
+folder_imps_pos = paste0(base_folder, "td_imps_pos\\")
 
 options(warn=-1)
 set.seed = 1234
 n_sim = 1900
 for(i in 1:n_sim){
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
-  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_pos, folder_fits_pos, folder_imps_pos, rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_pos, folder_fits_pos, folder_imps_pos, rep = i))
 }
 options(warn=0)
 
-#-------------- to check if results are different if player position is included
+#-------------- player position and srpe
 
 # performing simulations with n runs
 # the warnings are caused by collinearity between the variables
 # which is expected
-folder_fits = paste0(base_folder, "td_fits_srpe_pos\\")
-folder_imps = paste0(base_folder, "td_imps_srpe_pos\\")
+folder_fits_srpe_pos = paste0(base_folder, "td_fits_srpe_pos\\")
+folder_imps_srpe_pos = paste0(base_folder, "td_imps_srpe_pos\\")
 
 options(warn=-1)
 set.seed = 1234
 n_sim = 1900
 for(i in 1:n_sim){
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
-  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_srpe_pos, folder_fits_srpe_pos, folder_imps_srpe_pos, rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_srpe_pos, folder_fits_srpe_pos, folder_imps_srpe_pos, rep = i))
 }
 options(warn=0)
 
 #----------------------------------------------To check if results are different whether all GPS variables have missing or not
 
-
-# performing simulations with n runs
-# the warnings are caused by collinearity between the variables
-# which is expected
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
-folder_fits = paste0(base_folder, "td_fits_nogps\\")
-folder_imps = paste0(base_folder, "td_imps_nogps\\")
-
+# we need to change the functions that add missing to something
+# that adds missing to all the gps variables at once
 # Create missing completely at random
 add_mcar_td = function(d, missing_prop){
   n_values = nrow(d)
   d = d %>% rownames_to_column()
   random_spots_td = sample(1:n_values, round(missing_prop*n_values))
-  d = d %>% mutate_at(vars(td, v4, v5, pl), ~ifelse(rowname %in% random_spots_td, NA, .)) %>% dplyr::select(-rowname)
+  d = d %>% mutate_at(vars(gps_td, gps_v4, gps_v5, gps_pl), ~ifelse(rowname %in% random_spots_td, NA, .)) %>% dplyr::select(-rowname)
   d
 }
 
@@ -354,12 +360,17 @@ add_mcar_td = function(d, missing_prop){
 add_mar_td = function(d, corr){
   d = d %>% mutate(na_prop = mar_function(., corr),
                    na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
-                   td = ifelse(na_spot_td == 1, NA, td),
-                   v4 = ifelse(na_spot_td == 1, NA, v4),
-                   v5 = ifelse(na_spot_td == 1, NA, v5),
-                   pl = ifelse(na_spot_td == 1, NA, pl))
+                   gps_td = ifelse(na_spot_td == 1, NA, gps_td),
+                   gps_v4 = ifelse(na_spot_td == 1, NA, gps_v4),
+                   gps_v5 = ifelse(na_spot_td == 1, NA, gps_v5),
+                   gps_pl = ifelse(na_spot_td == 1, NA, gps_pl))
   d %>% dplyr::select(-starts_with("na"))
 }
+
+
+#----------- First for the variant with no extra variables
+folder_fits_nogps_noextra = paste0(base_folder, "td_fits_nogps\\")
+folder_imps_nogps_noextra = paste0(base_folder, "td_imps_nogps\\")
 
 options(warn=-1)
 set.seed = 1234
@@ -367,14 +378,14 @@ n_sim = 1900
 for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
-  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_noextra, folder_fits_nogps_noextra, folder_imps_nogps_noextra, rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_noextra, folder_fits_nogps_noextra, folder_imps_nogps_noextra, rep = i))
 }
 options(warn=0)
 
-#---------------------------- finally, if all gPS are missing, but position is available
-folder_fits = paste0(base_folder, "td_fits_nogps_pos\\")
-folder_imps = paste0(base_folder, "td_imps_nogps_pos\\")
+#------------ if all gPS are missing, but position is available
+folder_fits_nogps_pos = paste0(base_folder, "td_fits_nogps_pos\\")
+folder_imps_nogps_pos = paste0(base_folder, "td_imps_nogps_pos\\")
 
 options(warn=-1)
 set.seed = 1234
@@ -382,15 +393,15 @@ n_sim = 1900
 for(i in 114:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
-  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_pos, folder_fits_nogps_pos, folder_imps_nogps_pos, rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_pos, folder_fits_nogps_pos, folder_imps_nogps_pos, rep = i))
 }
 options(warn=0)
 
 
-#---------------------------- finally, if all gPS are missing, but position AND sRPE is available
-folder_fits = paste0(base_folder, "td_fits_nogps_srpe_pos\\")
-folder_imps = paste0(base_folder, "td_imps_nogps_srpe_pos\\")
+#----------- finally, if all gPS are missing, but position AND sRPE is available
+folder_fits_nogps_srpe_pos = paste0(base_folder, "td_fits_nogps_srpe_pos\\")
+folder_imps_nogps_srpe_pos = paste0(base_folder, "td_imps_nogps_srpe_pos\\")
 
 options(warn=-1)
 set.seed = 1234
@@ -398,8 +409,8 @@ n_sim = 1900
 for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
   # without attempting to spit out a list (in comparison to map(), which will create a list or die trying)
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., rep = i))
-  missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_srpe_pos, folder_fits_nogps_srpe_pos, folder_imps_nogps_srpe_pos, rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_srpe_pos, folder_fits_nogps_srpe_pos, folder_imps_nogps_srpe_pos, rep = i))
 }
 options(warn=0)
 
