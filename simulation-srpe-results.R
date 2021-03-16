@@ -92,7 +92,14 @@ plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, gr
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS")) +
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
   coord_cartesian(ylim=c(NA, 1.15))
 
 emf("srpe_mcar.emf", width = 12, height = 6)
@@ -111,7 +118,14 @@ plot_mar_pb =  ggplot(d_fig_mar, aes(x = missing_amount, y = pb, group = method,
   ylab("% Bias") + 
   xlab("Missing amount under MAR") + 
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS")) +
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
   coord_cartesian(ylim=c(NA, 1.15))
 
 emf("srpe_mar.emf", width = 12, height = 6)
@@ -188,7 +202,14 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS")) +
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
   coord_cartesian(ylim=c(NA, 1.15))
 
 emf("srpe_pb_mcar_pos_vs_nopos.emf", width = 12, height = 4)
@@ -208,7 +229,14 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
   xlab("Missing amount under MAR") + 
   scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS")) +
+        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
   coord_cartesian(ylim=c(NA, 1.15))
 
 
