@@ -37,27 +37,16 @@ for(i in 1:n_sim){
   d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
 }
 
-#------------sRPE, missing in total distance only
+#------------position available, missing in total distance only
 # folder of fits for the srpe version
-folder_fits_srpe = paste0(base_folder, "td_fits_srpe\\")
-files_fits_srpe = list.files(path = folder_fits_srpe)
-n_sim = length(files_fits_srpe)/n_missingvariations
-d_fit_estimates_srpe = data.frame()
+folder_fits_pos = paste0(base_folder, "td_fits_pos\\")
+files_fits_pos = list.files(path = folder_fits_pos)
+n_sim = length(files_fits_pos)/n_missingvariations
+d_fit_estimates_pos = data.frame()
 for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
-  d_fit_estimates_srpe = rbind(d_fit_estimates_srpe, temp_data_mcar, temp_data_mar)
-}
-
-#-----------No extra variables, missing in all GPS variables
-folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
-files_fits_nogps = list.files(path = folder_fits_nogps)
-n_sim = length(files_fits_nogps)/n_missingvariations 
-d_fit_estimates_nogps = data.frame()
-for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
-  d_fit_estimates_nogps = rbind(d_fit_estimates_nogps, temp_data_mcar, temp_data_mar)
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_pos = rbind(d_fit_estimates_pos, temp_data_mcar, temp_data_mar)
 }
 
 #----------- Both sRPE and player position, missing only in total distance
@@ -71,14 +60,25 @@ for(i in 1:n_sim){
   d_fit_estimates_srpe_pos = rbind(d_fit_estimates_srpe_pos, temp_data_mcar, temp_data_mar)
 }
 
+#-----------No extra variables, missing in all GPS variables
+folder_fits_nogps = paste0(base_folder, "td_fits_nogps\\")
+files_fits_nogps = list.files(path = folder_fits_nogps)
+n_sim = length(files_fits_nogps)/n_missingvariations 
+d_fit_estimates_nogps = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_nogps, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  d_fit_estimates_nogps = rbind(d_fit_estimates_nogps, temp_data_mcar, temp_data_mar)
+}
+
 #----------------Player position alone, missing in all GPS variables
 folder_fits_nogps_pos = paste0(base_folder, "td_fits_nogps_pos\\")
 files_fits_nogps_pos = list.files(path = folder_fits_nogps_pos)
 n_sim = length(files_fits_nogps_pos)/n_missingvariations
 d_fit_estimates_nogps_pos = data.frame()
 for(i in 1:n_sim){
-  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_srpe_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
+  temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_nogps_pos, i,"_d_td_fits_mcar_",.,".rds"))) %>% bind_rows()
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_nogps_pos, i,"_d_td_fits_mar_",.,".rds"))) %>% bind_rows()
   d_fit_estimates_nogps_pos = rbind(d_fit_estimates_nogps_pos, temp_data_mcar, temp_data_mar)
 }
 
@@ -99,6 +99,8 @@ for(i in 1:n_sim){
 # the real coefficient is: 0.003
 target_coef = 0.0003
 
+
+
 add_target = function(d_estimates, target){
   d_estimates = d_estimates %>% 
     mutate(target_est = target) %>% 
@@ -107,9 +109,12 @@ add_target = function(d_estimates, target){
 }
 
 d_fit_estimates_td = add_target(d_fit_estimates, target_coef)
-d_fit_estimates_td_srpe = add_target(d_fit_estimates_srpe, target_coef)
+# renamed the term for the last simulation
+d_fit_estimates_pos = d_fit_estimates_pos %>% mutate(term = ifelse(term == "gps_td", "td", term))
+d_fit_estimates_td_pos = add_target(d_fit_estimates_pos, target_coef)
 d_fit_estimates_td_srpe_pos = add_target(d_fit_estimates_srpe_pos, target_coef)
 d_fit_estimates_td_nogps = add_target(d_fit_estimates_nogps, target_coef)
+d_fit_estimates_nogps_pos = d_fit_estimates_nogps_pos %>% mutate(term = ifelse(term == "gps_td", "td", term))
 d_fit_estimates_td_nogps_pos = add_target(d_fit_estimates_nogps_pos, target_coef)
 d_fit_estimates_td_nogps_srpe_pos = add_target(d_fit_estimates_nogps_srpe_pos, target_coef)
 
@@ -133,7 +138,7 @@ calc_perf_params = function(d_td, var_extra, var_gps){
               mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
               mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
     arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
-  perf_estimates_targetcoef %>% 
+  perf_estimates_targetcoef = perf_estimates_targetcoef %>% 
     mutate(var_extra = var_extra, 
            var_gps = var_gps)
   perf_estimates_targetcoef
@@ -142,16 +147,16 @@ calc_perf_params = function(d_td, var_extra, var_gps){
 tot_only = "Total Distance Only"
 all_gps = "All GPS"
 perf_estimates_targetcoef = calc_perf_params(d_fit_estimates_td, "No extra variables", tot_only)
-perf_estimates_targetcoef_srpe = calc_perf_params(d_fit_estimates_td_srpe, "sRPE", tot_only)
-perf_estimates_targetcoef_srpe_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player position and sRPE", tot_only)
-perf_estimates_targetcoef_nogps = calc_perf_params(d_fit_estimates_nogps, "No extra variables", all_gps)
-perf_estimates_targetcoef_nogps_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player Position", all_gps)
-perf_estimates_targetcoef_nogps_srpe_pos = calc_perf_params(d_fit_estimates_td_nogps_srpe_pos, "Player position and sRPE", all_gps)
+perf_estimates_targetcoef_pos = calc_perf_params(d_fit_estimates_td_pos, "Player Position", tot_only)
+perf_estimates_targetcoef_srpe_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player Position and sRPE", tot_only)
+perf_estimates_targetcoef_nogps = calc_perf_params(d_fit_estimates_td_nogps, "No extra variables", all_gps)
+perf_estimates_targetcoef_nogps_pos = calc_perf_params(d_fit_estimates_td_nogps_pos, "Player Position", all_gps)
+perf_estimates_targetcoef_nogps_srpe_pos = calc_perf_params(d_fit_estimates_td_nogps_srpe_pos, "Player Position and sRPE", all_gps)
 
 # combining into 1 dataset
 fit_estimates_all = bind_rows(
   d_fit_estimates_td,
-  d_fit_estimates_td_srpe,
+  d_fit_estimates_td_pos,
   d_fit_estimates_td_srpe_pos,
   d_fit_estimates_td_nogps,
   d_fit_estimates_td_nogps_pos,
@@ -159,7 +164,7 @@ fit_estimates_all = bind_rows(
 )
 perf_estimates_all = bind_rows(
   perf_estimates_targetcoef,
-  perf_estimates_targetcoef_srpe,
+  perf_estimates_targetcoef_pos,
   perf_estimates_targetcoef_srpe_pos,
   perf_estimates_targetcoef_nogps,
   perf_estimates_targetcoef_nogps_pos,
@@ -209,7 +214,11 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
   coord_cartesian(ylim = c(-0.4, 0.25))
 
 
-emf("td_pb_mcar.emf", width = 12, height = 8)
+emf("td_pb_mcar.emf", width = 12, height = 12)
+plot_mcar_pb
+dev.off()
+
+cairo_pdf("Figure 3 Colour Image.pdf", width = 12, height = 12)
 plot_mcar_pb
 dev.off()
 
@@ -236,12 +245,16 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
         axis.ticks = element_line(color = nih_distinct[4])) +
   coord_cartesian(ylim = c(-0.3, 0.25))
 
-emf("td_pb_mar.emf", width = 12, height = 8)
+emf("td_pb_mar.emf", width = 12, height = 12)
 plot_mar_pb
 dev.off()
 
 emf("td_pb_mar_mcar.emf", width = 16, height = 10)
 ggarrange(plot_mcar_pb, plot_mar_pb, ncol = 1, labels = "AUTO")
+dev.off()
+
+cairo_pdf("Figure 4 Colour Image.pdf", width = 12, height = 12)
+plot_mar_pb
 dev.off()
 
 #--------------------------------Read data and calculate performance measures on the raw data
