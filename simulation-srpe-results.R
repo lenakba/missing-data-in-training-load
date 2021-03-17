@@ -106,6 +106,10 @@ emf("srpe_mcar.emf", width = 12, height = 6)
 plot_mcar_pb
 dev.off()
 
+cairo_pdf("Figure 1 Colour Image.pdf", width = 12, height = 6)
+plot_mcar_pb
+dev.off()
+
 plot_mar_pb =  ggplot(d_fig_mar, aes(x = missing_amount, y = pb, group = method, color = method)) +
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
@@ -129,6 +133,10 @@ plot_mar_pb =  ggplot(d_fig_mar, aes(x = missing_amount, y = pb, group = method,
   coord_cartesian(ylim=c(NA, 1.15))
 
 emf("srpe_mar.emf", width = 12, height = 6)
+plot_mar_pb
+dev.off()
+
+cairo_pdf("Figure 2 Colour Image.pdf", width = 12, height = 7)
 plot_mar_pb
 dev.off()
 
