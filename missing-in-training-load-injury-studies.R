@@ -5,6 +5,7 @@ library(tidyverse) # for datawrangling
 library(readxl) # for reading .xlsx files
 library(lmisc) # ggplot2 themes etc.
 library(devEMF) # to save emf files
+library(scales) # malipulating numeric scales
 
 #-----------------------------------------------------Data preparation
 
@@ -127,23 +128,33 @@ fig_line = function(d, x, y, title, percent = FALSE){
 # percentage studies that reported missing and assumptions each year
 fig_line(d_dquality, year, prop, "Percentage studies reported missing", TRUE)
 
-d_study = d_study %>% 
-  mutate(n_over_200 = ifelse(n_injuries >= 200, 1, 0))
+d_tl_study = d_tl_study %>% 
+  mutate(n_over_200 = ifelse(n_injuries_analyses >= 200, 1, 0))
 
-prop_above_200 = d_study %>% 
-  mutate(n_over_200 = ifelse(n_injuries >= 200, 1, 0)) %>% 
-  summarise(n = sum(n_over_200 == 1, na.rm = TRUE), denom = sum(n_over_200 == 1, na.rm = TRUE) + sum(n_over_200 == 0, na.rm = TRUE), prop = n/denom)
+prop_above_200 = d_tl_study %>%  
+  summarise(n = sum(n_over_200 == 1, na.rm = TRUE), 
+            denom = sum(n_over_200 == 1, na.rm = TRUE) + 
+                    sum(n_over_200 == 0, na.rm = TRUE), 
+            prop = n/denom)
+
+d_tl_study = d_tl_study %>% mutate(n_injuries_outlierfix = ifelse(n_injuries_analyses >= 1000, 1000, n_injuries_analyses))
+
 
 emf("n_injury_distribution.emf", width = 8, height = 4)
 text_size = 16
-ggplot(d_study, aes(x = n_injuries_outlierfix)) + 
+ggplot(d_tl_study, aes(x = n_injuries_outlierfix)) + 
   geom_histogram(binwidth = 30, fill = nih_distinct[4]) +
   geom_vline(xintercept = 200, color = nih_distinct[1], size = 1.5, alpha = 0.5) + 
   scale_x_continuous(breaks = breaks_width(100, 0)) + 
   scale_y_continuous(breaks = breaks_width(4, 0), expand = expand_bar) + 
   theme_line() +
-  xlab("Number of Injuries") +
-  ylab("Number of\nStudies") +
-  theme(axis.text = element_text(size=text_size),
-        axis.title =  element_text(size=text_size))
+  xlab("Number of injuries") +
+  ylab("Number of studies") +
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4]))
 dev.off()
