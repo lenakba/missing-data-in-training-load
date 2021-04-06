@@ -99,8 +99,6 @@ for(i in 1:n_sim){
 # the real coefficient is: 0.003
 target_coef = 0.0003
 
-
-
 add_target = function(d_estimates, target){
   d_estimates = d_estimates %>% 
     mutate(target_est = target) %>% 
@@ -173,6 +171,9 @@ perf_estimates_all = bind_rows(
 # save to csv
 write_excel_csv(fit_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
 write_excel_csv(perf_estimates_all, "simulation_results_perfparams_td.csv", delim = ";", na = "")
+
+# save time by reading in the saved data
+
 
 #--------------- Figures
 d_fig_all = perf_estimates_all %>% 
@@ -333,6 +334,47 @@ emf("td_imp_vs_real_mcar.emf", width = 12, height = 8)
 plot_mcar
 dev.off()
 
+#-------------------------------Checking how much multiple imputation affected the performance of PMM
+
+folder_fits = paste0(base_folder, "td_fits_singleimp\\")
+
+# reading the simulated results from fits
+files_fits = list.files(path = folder_fits)
+n_sim = length(files_fits)/30 # divide by the number of missing type and level combinations
+d_fit_estimates = data.frame()
+for(i in 1:n_sim){
+  temp_data_mcar_noextra = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_d_exdata_td_noextra_mcar_",.,".rds"))) %>% bind_rows() %>% mutate(data = "noextra")
+  temp_data_mcar_pos = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_d_exdata_td_pos_mcar_",.,".rds"))) %>% bind_rows() %>% mutate(data = "pos")
+  temp_data_mcar_srpe_pos = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_d_exdata_td_srpe_pos_mcar_",.,".rds"))) %>% bind_rows() %>% mutate(data = "srpe_pos")
+  d_fit_estimates = rbind(temp_data_mcar_noextra, temp_data_mcar_pos, temp_data_mcar_srpe_pos)
+}
+
+d_fit_estimates = d_fit_estimates %>% mutate(term = ifelse(term == "gps_td", "td", term)) %>% filter(method == "SI - PMM" | method == "MI - PMM")
+d_td_term = add_target(d_fit_estimates, target_coef)
+
+d_perf = d_td_term %>% 
+  group_by(data, method, missing_amount) %>% 
+  summarise(bias = raw_bias(estimate, target_est),
+            pb = percent_bias(estimate, target_est),
+            mean_se = mean(std.error, na.rm = TRUE)) %>% 
+  arrange(missing_amount) %>% ungroup()
+
+key_cols = c("data", "missing_amount", "n_imp")
+d_perf = d_perf %>% mutate(n_imp = ifelse(str_detect(d_perf$method, "SI"), "SI", "MI")) %>% 
+  arrange(data, method,missing_amount) %>% select(-method)
+
+
+d_perf_pb = d_perf %>% select(all_of(key_cols), pb) %>% spread(., key = n_imp, value = pb) %>% rename(PB_MI = MI, PB_SI = SI)
+d_perf_se = d_perf %>% select(all_of(key_cols), mean_se) %>% spread(., key = n_imp, value = mean_se)  %>% rename(SE_MI = MI, SE_SI = SI)
+
+d_si_v_mi = d_perf_pb %>% left_join(d_perf_se, by = c("data", "missing_amount"))
+
+# save dataset
+d_si_v_mi_rounded = d_si_v_mi %>% mutate(SE_MI = round(SE_MI, 7), 
+                                         SE_SI = round(SE_SI, 7),
+                                         PB_MI = round(PB_MI, 1),
+                                         PB_SI = round(PB_SI, 1))
+write_excel_csv(d_si_v_mi_rounded, "td_si_vs_mi.csv", delim = ";", na = "")
 
 #TODO? calc performance measures of imputed values
 perf_esimates_impvalues = d_imp_nogps_pos %>% filter(method != "Complete Case Analysis", imp_place == 1) %>% 
