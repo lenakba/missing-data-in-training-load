@@ -330,6 +330,111 @@ for(i in 1:n_sim){
 }
 options(warn=0)
 
+#------------------------------------------------to check the difference between single and multiple imputation
+
+
+get_params = function(fit, method, pool = FALSE){
+  if(pool){
+    d_params = summary(mice::pool(fit), "all", conf.int = TRUE) %>% 
+      dplyr::select(term, std.error, estimate, CI_low = "2.5 %", CI_high = "97.5 %", p = p.value) %>% 
+      as_tibble() %>% 
+      mutate(term =  as.character(term))
+  } else {
+    d_params = summary(fit, conf.int = TRUE) %>% 
+      dplyr::select(term, std.error, estimate, CI_low = "conf.low", CI_high = "conf.high", p = p.value) %>% 
+      as_tibble() %>% 
+      mutate(term =  as.character(term))
+  }
+  d_params = d_params %>% mutate(method = method) 
+  d_params
+}
+
+# The final, helper function that performs all the imputations at once, given a dataset with missing
+# then, it fits a logistic regression model on the data
+# and outputs the needed model parameters for the validation of the imputation models
+sim_impfit_singleimp = function(d_missing, rep = 1){
+  
+  #-----------------impute using all the different methods
+  # Multiple Imputation - Regression imputation
+  mids.reg.1 = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
+  imp.reg.1 = mice::complete(mids.reg.1, "long", include = TRUE)
+  imp.reg.1$srpe = with(imp.reg.1, rpe*duration)
+  mids.reg.1 = as.mids(imp.reg.1)
+  
+  # Multiple Imputation - Predicted Mean Matching
+  mids.pmm.1 = mice(d_missing, print = FALSE, seed = 1234, m = 1)
+  imp.pmm.1 = mice::complete(mids.pmm.1, "long", include = TRUE)
+  imp.pmm.1$srpe = with(imp.pmm.1, rpe*duration)
+  mids.pmm.1 = as.mids(imp.pmm.1)
+  
+  # Multiple Imputation - Regression imputation
+  mids.reg.5 = mice(d_missing, method = "norm.predict", seed = 1234, m = 5, print = FALSE)
+  imp.reg.5 = mice::complete(mids.reg.5, "long", include = TRUE)
+  imp.reg.5$srpe = with(imp.reg.5, rpe*duration)
+  mids.reg.5 = as.mids(imp.reg.5)
+  
+  # Multiple Imputation - Predicted Mean Matching
+  mids.pmm.5 = mice(d_missing, print = FALSE, m = 5, seed = 1234)
+  imp.pmm.5 = mice::complete(mids.pmm.5, "long", include = TRUE)
+  imp.pmm.5$srpe = with(imp.pmm.5, rpe*duration)
+  mids.pmm.5 = as.mids(imp.pmm.5)
+  
+  # fit our models
+  fit.reg.1 =  with(mids.reg.1, glm(injury ~ srpe, family = binomial))
+  fit.pmm.1 =  with(mids.pmm.1, glm(injury ~ srpe, family = binomial))
+  fit.reg.5 =  with(mids.reg.5, glm(injury ~ srpe, family = binomial))
+  fit.pmm.5 =  with(mids.pmm.5, glm(injury ~ srpe, family = binomial))
+  
+  # fetch model parameters
+  tab1 = get_params(fit.reg.1, "SI - Regression Imputation", pool = FALSE)  
+  tab2 = get_params(fit.pmm.1, "SI - PMM", pool = FALSE)  
+  tab3 = get_params(fit.reg.5, "MI - Regression Imputation", pool = TRUE)  
+  tab4 = get_params(fit.pmm.5, "MI - PMM", pool = TRUE)  
+  
+  d_fits = bind_rows(tab1, tab2, tab3, tab4)
+  d_fits = d_fits %>% mutate(rep = rep)
+  d_fits
+}
+
+sim_impute = function(missing, missing_amount, d, folder_fits, rep){
+
+  if(missing == "mcar"){
+    d_mcar = add_mcar_rpe(d, missing_amount)
+    d_sim_fits_mcar = sim_impfit_singleimp(d_mcar, rep) %>% 
+      mutate(missing_type = missing, 
+             missing_amount = missing_amount)
+    saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep,"_d_spre_fits_", missing, "_", missing_amount,".rds"))  
+  } else if(missing == "mar"){
+    d_mar = add_mar_rpe(d, missing_amount)
+    d_sim_fits_mar = sim_impfit_singleimp(d_mar, rep) %>% 
+      mutate(missing_type = missing, 
+             missing_amount = missing_amount)
+    saveRDS(d_sim_fits_mar, file=paste0(folder_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds"))
+  }
+}
+
+# vector of chosen missing proportions
+# if we ever want to change it or add more proportions, easily done here.
+missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+missing_prop_mar = c("light", "medium", "strong")
+
+# base folder where all the folders for simulations are to be saved
+base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+folder_fits_singleimp = paste0(base_folder, "srpe_fits_singleimp\\")
+
+# performing simulations with n runs
+# the warnings are caused by collinearity between the variables
+# which is expected
+options(warn=-1)
+set.seed = 1234
+n_sim = 1900
+for(i in 1:n_sim){
+  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_srpe, folder_fits_singleimp, rep = i))
+  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar, folder_fits_singleimp, rep = i))
+}
+options(warn=0)
+
+
 #------------------------------------------------------Step-by-step process of the simulation below-------------------------------------------------
 # Either for understanding or troubleshooting, 
 # the functions above are broken down step-by-step
