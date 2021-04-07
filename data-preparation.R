@@ -121,6 +121,9 @@ nrow(d_td_daily %>% filter(total_distance_daily < 100 & total_distance_daily != 
 # we assume it is an error and set it to missing
 d_td_daily = d_td_daily %>% mutate(total_distance_daily = ifelse(total_distance_daily < 100, NA, total_distance_daily))
 
+# how much missing total distance in the dataset?
+d_td_daily %>% summarise(sum(is.na(total_distance_daily)))
+
 # remove the gps data with millions of rows from the r-environment
 remove(d_td)
 
@@ -366,6 +369,9 @@ d_srpe_full_dt = d_srpe_full_dt %>% mutate(missing_rpe = ifelse(is.na(missing_rp
                                        missing_duration = ifelse(is.na(missing_duration), 2, missing_duration),
                                        missing_duration_text = ifelse(is.na(missing_duration_text), "Missing Implicitly", missing_duration_text),
                                        mc_day = ifelse(is.na(mc_day), "Unconventional match week", mc_day))
+
+
+d_srpe_full_dt %>% arrange(desc(training_date))
 
 #---------------------------------------- Step 8 Anonymize the ID so that the data used in simulations can later be uploaded as-is
 
