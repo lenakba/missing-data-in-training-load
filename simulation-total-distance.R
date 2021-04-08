@@ -99,12 +99,12 @@ fit_glm = function(d){
 get_params = function(fit, method, pool = FALSE){
   if(pool){
     d_params = summary(mice::pool(fit), "all", conf.int = TRUE) %>% 
-      dplyr::select(term, estimate, CI_low = "2.5 %", CI_high = "97.5 %", p = p.value) %>% 
+      dplyr::select(term, std.error, estimate, CI_low = "2.5 %", CI_high = "97.5 %", p = p.value) %>% 
       as_tibble() %>% 
       mutate(term =  as.character(term))
   } else {
     d_params = parameters::parameters(fit) %>% tibble() %>% 
-      dplyr::select(term = Parameter, estimate = Coefficient, CI_low, CI_high, p)
+      dplyr::select(term = Parameter, std.error = SE, estimate = Coefficient, CI_low, CI_high, p)
   }
   d_params = d_params %>% mutate(method = method) 
   d_params
@@ -122,9 +122,9 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   # Mean imputation by the mean per week
   d.mean.week = impute_mean(d_missing, week_nr)
   
-  # Multiple Imputation - Regression imputation
-  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 5, print = FALSE)
-  
+  # Regression imputation
+  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
+
   # Multiple Imputation - Predicted Mean Matching
   mids.pmm = mice(d_missing, seed = 1234, m = 5, print = FALSE)
   
@@ -141,9 +141,14 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   # fetch model parameters
   tab1 = get_params(fit.mean.p_id, "Mean Imputation - Mean per player")  
   tab2 = get_params(fit.mean.week, "Mean Imputation - Mean per week")  
-  tab3 = get_params(fit.reg, "MI - Regression Imputation", pool = TRUE)  
+  tab3 = summary(fit.reg, conf.int = TRUE) %>% 
+    dplyr::select(term, std.error, estimate, CI_low = "conf.low", CI_high = "conf.high", p = p.value) %>% 
+    as_tibble() %>% 
+    mutate(term =  as.character(term),
+           method = "Regression Imputation") 
   tab4 = get_params(fit.pmm, "MI - PMM", pool = TRUE)  
   tab5 = get_params(fit.cc, "Complete Case Analysis")  
+
   
   d_fits = bind_rows(target_param, tab1, tab2, tab3, tab4, tab5)
   d_fits = d_fits %>% mutate(rep = rep)
@@ -187,8 +192,8 @@ sim_imp = function(d_missing, target, run = 1){
   # Mean imputation by the mean per week
   d.mean.week = impute_mean(d_missing, week_nr)
   
-  # Multiple Imputation - Regression imputation
-  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 5, print = FALSE)
+  # Regression imputation
+  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
 
   # Multiple Imputation - Predicted Mean Matching
   mids.pmm = mice(d_missing, seed = 1234, m = 5, print = FALSE)
@@ -202,7 +207,7 @@ sim_imp = function(d_missing, target, run = 1){
  
   # since multiple imputation has 5 datasets, the column is added to a list of datasets
   d.reg = mice::complete(mids.reg, "all") %>%
-    map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "MI - Regression Imputation")) %>%
+    map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Regression Imputation")) %>%
     imap(., ~mutate(., dataset_n = .y)) %>% # a column for which dataset number, as multiple imputation imputes multiple
     bind_rows()
   
@@ -425,14 +430,6 @@ add_mcar_td = function(d, missing_prop){
   d
 }
 
-# adding missing at random to a dataset
-add_mar_td = function(d, corr){
-  d = d %>% mutate(na_prop = mar_function(., corr),
-                   na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
-                   gps_td = ifelse(na_spot_td == 1, NA, gps_td))
-  d %>% dplyr::select(-starts_with("na"))
-}
-
 # we need to change the functions that add missing to something
 # that adds missing to all the gps variables at once
 # Create missing completely at random
@@ -442,17 +439,6 @@ add_mcar_td_allgps = function(d, missing_prop){
   random_spots_td = sample(1:n_values, round(missing_prop*n_values))
   d = d %>% mutate_at(vars(gps_td, gps_v4, gps_v5, gps_pl), ~ifelse(rowname %in% random_spots_td, NA, .)) %>% dplyr::select(-rowname)
   d
-}
-
-# adding missing at random to a dataset
-add_mar_td_allgps = function(d, corr){
-  d = d %>% mutate(na_prop = mar_function(., corr),
-                   na_spot_td = rbinom(length(na_prop), 1, prob = na_prop),
-                   gps_td = ifelse(na_spot_td == 1, NA, gps_td),
-                   gps_v4 = ifelse(na_spot_td == 1, NA, gps_v4),
-                   gps_v5 = ifelse(na_spot_td == 1, NA, gps_v5),
-                   gps_pl = ifelse(na_spot_td == 1, NA, gps_pl))
-  d %>% dplyr::select(-starts_with("na"))
 }
 
 get_params = function(fit, method, pool = FALSE){
@@ -477,49 +463,34 @@ get_params = function(fit, method, pool = FALSE){
 sim_impfit_singleimp = function(d_missing, rep = 1){
   
   #-----------------impute using all the different methods
-  # Multiple Imputation - Regression imputation
-  mids.reg.1 = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
-  mids.reg.5 = mice(d_missing, method = "norm.predict", seed = 1234, m = 10, print = FALSE)
-  
+
   # Multiple Imputation - Predicted Mean Matching
   mids.pmm.1 = mice(d_missing, seed = 1234, m = 1, print = FALSE)
-  mids.pmm.5 = mice(d_missing, seed = 1234, m = 10, print = FALSE)
+  mids.pmm.5 = mice(d_missing, seed = 1234, m = 5, print = FALSE)
   
   # fit our models
-  fit.reg.1 =  with(mids.reg.1, glm(injury ~ gps_td, family = binomial))
   fit.pmm.1 =  with(mids.pmm.1, glm(injury ~ gps_td, family = binomial))
-  fit.reg.5 =  with(mids.reg.5, glm(injury ~ gps_td, family = binomial))
   fit.pmm.5 =  with(mids.pmm.5, glm(injury ~ gps_td, family = binomial))
   
   # fetch model parameters
-  tab1 = get_params(fit.reg.1, "SI - Regression Imputation", pool = FALSE)  
-  tab2 = get_params(fit.pmm.1, "SI - PMM", pool = FALSE)  
-  tab3 = get_params(fit.reg.5, "MI - Regression Imputation", pool = TRUE)  
-  tab4 = get_params(fit.pmm.5, "MI - PMM", pool = TRUE)  
+  tab1 = get_params(fit.pmm.1, "SI - PMM", pool = FALSE)  
+  tab2 = get_params(fit.pmm.5, "MI - PMM", pool = TRUE)  
   
-  d_fits = bind_rows(tab1, tab2, tab3, tab4)
+  d_fits = bind_rows(tab1, tab2)
   d_fits = d_fits %>% mutate(rep = rep)
   d_fits
 }
 
-sim_impute = function(missing, missing_amount, d, folder_fits, rep){
+sim_impute = function(missing_amount, d, folder_fits, rep){
   name = as.character(substitute(d))
-  
-  if(missing == "mcar"){
+
     d_mcar = add_mcar_td(d, missing_amount)
     d_sim_fits_mcar = sim_impfit_singleimp(d_mcar, rep) %>% 
-      mutate(missing_type = missing, 
+      mutate(missing_type = "mcar", 
              missing_amount = missing_amount,
              data_type = name)
     saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep,"_d_td_fits_", name, "_", missing, "_", missing_amount,".rds"))  
-  } else if(missing == "mar"){
-    d_mar = add_mar_td(d, missing_amount)
-    d_sim_fits_mar = sim_impfit_singleimp(d_mar, rep) %>% 
-                     mutate(missing_type = missing, 
-                            missing_amount = missing_amount,
-                            data_type = name)
-    saveRDS(d_sim_fits_mar, file=paste0(folder_fits, rep,"_d_td_fits_", name, "_", missing, "_", missing_amount,".rds"))
-  }
+
 }
 
 # vector of chosen missing proportions
@@ -537,8 +508,8 @@ options(warn=-1)
 set.seed = 1234
 n_sim = 1900
 for(i in 1793:n_sim){
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_noextra, folder_fits_singleimp, rep = i))
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_pos, folder_fits_singleimp, rep = i))
-  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_srpe_pos, folder_fits_singleimp, rep = i))
+  missing_prop_mcar %>% walk(~sim_impute(., d_exdata_td_noextra, folder_fits_singleimp, rep = i))
+  missing_prop_mcar %>% walk(~sim_impute(., d_exdata_td_pos, folder_fits_singleimp, rep = i))
+  missing_prop_mcar %>% walk(~sim_impute(., d_exdata_td_srpe_pos, folder_fits_singleimp, rep = i))
 }
 options(warn=0)
