@@ -108,12 +108,12 @@ fit_glm = function(d){
 get_params = function(fit, method, pool = FALSE){
   if(pool){
     d_params = summary(mice::pool(fit), "all", conf.int = TRUE) %>% 
-      dplyr::select(term, estimate, CI_low = "2.5 %", CI_high = "97.5 %", p = p.value) %>% 
+      dplyr::select(term, std.error, estimate, CI_low = "2.5 %", CI_high = "97.5 %", p = p.value) %>% 
       as_tibble() %>% 
       mutate(term =  as.character(term))
   } else {
     d_params = parameters::parameters(fit) %>% tibble() %>% 
-      dplyr::select(term = Parameter, estimate = Coefficient, CI_low, CI_high, p)
+      dplyr::select(term = Parameter, std.error = SE, estimate = Coefficient, CI_low, CI_high, p)
   }
   d_params = d_params %>% mutate(method = method) 
   d_params
@@ -132,7 +132,7 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   d.mean.week = impute_mean(d_missing, week_nr)
   
   # Mulitple Imputation - Regression imputation
-  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 5, print = FALSE)
+  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
   imp.reg = mice::complete(mids.reg, "long", include = TRUE)
   imp.reg$srpe = with(imp.reg, rpe*duration)
   mids.reg = as.mids(imp.reg)
@@ -156,7 +156,11 @@ sim_impfit = function(d_missing, target_param, rep = 1){
   # fetch model parameters
   tab1 = get_params(fit.mean.p_id, "Mean Imputation - Mean per player")  
   tab2 = get_params(fit.mean.week, "Mean Imputation - Mean per week")  
-  tab3 = get_params(fit.reg, "MI - Regression Imputation", pool = TRUE)  
+  tab3 = summary(fit.reg, conf.int = TRUE) %>% 
+    dplyr::select(term, std.error, estimate, CI_low = "conf.low", CI_high = "conf.high", p = p.value) %>% 
+    as_tibble() %>% 
+    mutate(term =  as.character(term),
+           method = "Regression Imputation")
   tab4 = get_params(fit.pmm, "MI - PMM", pool = TRUE)  
   tab5 = get_params(fit.cc, "Complete Case Analysis")  
   
@@ -203,7 +207,7 @@ sim_imp = function(d_missing, target, run = 1){
   d.mean.week = impute_mean(d_missing, week_nr)
   
   # Multiple Imputation - Regression imputation
-  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 5, print = FALSE)
+  mids.reg = mice(d_missing, method = "norm.predict", seed = 1234, m = 1, print = FALSE)
   imp.reg = mice::complete(mids.reg, "long", include = TRUE)
   imp.reg$srpe = with(imp.reg, rpe*duration)
   mids.reg = as.mids(imp.reg)
@@ -223,7 +227,7 @@ sim_imp = function(d_missing, target, run = 1){
 
   # since multiple imputation has 5 datasets, the column is added to a list of datasets
   d.reg = mice::complete(mids.reg, "all") %>%
-    map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "MI - Regression Imputation")) %>%
+    map(. %>% add_target_imp(., imp_rows_pos, target = target, method = "Regression Imputation")) %>%
     imap(., ~mutate(., dataset_n = .y)) %>% # a column for which dataset number, as multiple imputation imputes multiple
     bind_rows() %>% filter(dataset_n != 0) # unimputed dataset is included in the ITT method, we remove this
   
