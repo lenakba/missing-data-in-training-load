@@ -1,4 +1,4 @@
-# this script serves to prepare the football data for use in missin data simulation
+# this script serves to prepare the football data for use in missing data simulation
 # in this endeavor we will:
 # Step 1: obtain GPS data and extract total distance
 # Step 2: Remove ostensibly erroneous GPS data at the second level (this becomes part of missing data)
@@ -6,7 +6,7 @@
 # Step 4: Obtain RPE data
 # Step 5: Find implicit days where the players did not have any training (day after match, weekends etc.)
 # Step 6: Combine RPE and GPS data at the daily level so that we have both in the same dataset
-# Step 7: Add dates with neither sRPE data, nor GPS data, nor implicit free day data, to each player
+# Step 7: If load is missing, but the day is a recovery day, it can be set to 0
 # Step 8: Anonymize the ID so that the data used in simulations can later be uploaded as-is
 # Step 9: save the final dataset to be used in simulations for total distance, and save the srpe dataset at the session level for spre simulations
 
