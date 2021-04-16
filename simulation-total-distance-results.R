@@ -23,6 +23,9 @@ missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
 n_missingvariations = length(missing_prop_mcar) + length(missing_prop_mar)
 
+# output from the for-loops and functions below are saved as "simulation_results_perfparams_td.csv"
+# read the csv file to save time, or run all the for-loops and functions again
+perf_estimates_all = read_delim("simulation_results_perfparams_td.csv", delim = ";")
 
 #------------no extra variables, missing in total distance only
 folder_fits = paste0(base_folder, "td_fits\\")
@@ -102,17 +105,14 @@ target_coef = 0.0003
 add_target = function(d_estimates, target){
   d_estimates = d_estimates %>% 
     mutate(target_est = target) %>% 
-    filter(term == "td", method != "No Imputation")
+    filter(term == "gps_td")
   d_estimates
 }
 
 d_fit_estimates_td = add_target(d_fit_estimates, target_coef)
-# renamed the term for the last simulation
-d_fit_estimates_pos = d_fit_estimates_pos %>% mutate(term = ifelse(term == "gps_td", "td", term))
 d_fit_estimates_td_pos = add_target(d_fit_estimates_pos, target_coef)
 d_fit_estimates_td_srpe_pos = add_target(d_fit_estimates_srpe_pos, target_coef)
 d_fit_estimates_td_nogps = add_target(d_fit_estimates_nogps, target_coef)
-d_fit_estimates_nogps_pos = d_fit_estimates_nogps_pos %>% mutate(term = ifelse(term == "gps_td", "td", term))
 d_fit_estimates_td_nogps_pos = add_target(d_fit_estimates_nogps_pos, target_coef)
 d_fit_estimates_td_nogps_srpe_pos = add_target(d_fit_estimates_nogps_srpe_pos, target_coef)
 
@@ -143,7 +143,7 @@ calc_perf_params = function(d_td, var_extra, var_gps){
 }
 
 tot_only = "Total Distance Only"
-all_gps = "All GPS"
+all_gps = "All GPS variables"
 perf_estimates_targetcoef = calc_perf_params(d_fit_estimates_td, "No extra variables", tot_only)
 perf_estimates_targetcoef_pos = calc_perf_params(d_fit_estimates_td_pos, "Player Position", tot_only)
 perf_estimates_targetcoef_srpe_pos = calc_perf_params(d_fit_estimates_td_srpe_pos, "Player Position and sRPE", tot_only)
@@ -171,15 +171,59 @@ perf_estimates_all = bind_rows(
 # save to csv
 write_excel_csv(fit_estimates_all, "simulation_results_fits_td.csv", delim = ";", na = "")
 write_excel_csv(perf_estimates_all, "simulation_results_perfparams_td.csv", delim = ";", na = "")
+  
+tab_mar_td = perf_estimates_all %>% filter(missing_type == "mar")
+tab_mar_td_mean = tab_mar_td %>% group_by(var_gps, method)  %>% 
+  mutate_if(is.numeric, abs) %>% 
+  summarise_if(is.numeric, mean) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
 
-# save time by reading in the saved data
+tab_mar_td_noextravar_tdonly = tab_mar_td %>% filter(var_extra == "No extra variables", var_gps == "Total Distance Only") %>% 
+  select(-var_extra, -var_gps, -power, -missing_type) %>% 
+  arrange(missing_amount, method) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
+
+tab_mcar_td = perf_estimates_all %>% filter(missing_type == "mcar")
+tab_mcar_td_mean = tab_mcar_td %>% group_by(var_gps, method)  %>% 
+  mutate_if(is.numeric, abs) %>%  
+  summarise_if(is.numeric, mean) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
+
+tab_mcar_td_noextravar_tdonly = tab_mcar_td %>% filter(var_extra == "No extra variables", var_gps == "Total Distance Only") %>% 
+  select(-var_extra, -var_gps, -power, -missing_type) %>% 
+  arrange(missing_amount, method) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
+
+write_excel_csv(tab_mar_td_mean, "tab_mar_td_mean.csv", delim = ";", na = "")
+write_excel_csv(tab_mar_td_noextravar_tdonly, "tab_mar_td_noextravar_tdonly.csv", delim = ";", na = "")
+write_excel_csv(tab_mcar_td_mean, "tab_mcar_td_mean.csv", delim = ";", na = "")
+write_excel_csv(tab_mcar_td_noextravar_tdonly, "tab_mcar_td_noextravar_tdonly.csv", delim = ";", na = "")
+
 
 
 #--------------- Figures
 d_fig_all = perf_estimates_all %>% 
+            filter(method != "No Imputation") %>% 
             select(method, missing_type, missing_amount, pb, rmse, var_extra, var_gps) %>% mutate(pb = pb/100) %>% 
             mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
                                       method == "Mean Imputation - Mean per week" ~ "Mean per week",
+                                      method == "MI - PMM" ~ "MI - Predicted Mean Matching",
                                       TRUE ~ method))
 d_fig_mcar_all = d_fig_all %>% filter(missing_type == "mcar") 
 d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light",
@@ -188,10 +232,11 @@ d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_a
 library(lmisc) # ggplot2 themes
 library(ggpubr) # for multiple plots in one thanks to ggarrange()
 library(devEMF) # for saving emf files
+library(egg) # for denoting figs with A, B, C etc.
 text_size = 16
 
 plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
-  facet_wrap(c("var_extra", "var_gps"), ncol = 2, scales= "free") + 
+  facet_wrap(c("var_gps", "var_extra"), ncol = 3, scales= "free") + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
   geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
@@ -199,12 +244,13 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
   geom_point(size = 2) +
   theme_line(text_size, legend = TRUE) +
   scale_color_manual(values = nih_distinct) +
-  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0)) +
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
   ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
   theme(legend.title=element_blank(),
         legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        legend.position = "bottom",
         panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
@@ -212,19 +258,18 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
         axis.ticks = element_line(color = nih_distinct[4])) +
-  coord_cartesian(ylim = c(-0.4, 0.25))
+  coord_cartesian(ylim = c(-0.3, 0.3))
 
-
-emf("td_pb_mcar.emf", width = 12, height = 12)
-plot_mcar_pb
+emf("td_pb_mcar.emf", width = 14, height = 10)
+tag_facet(plot_mcar_pb, tag_pool = LETTERS)
 dev.off()
 
-cairo_pdf("Figure 3 Colour Image.pdf", width = 12, height = 12)
-plot_mcar_pb
+cairo_pdf("Figure 3.pdf", width = 14, height = 10)
+tag_facet(plot_mcar_pb, tag_pool = LETTERS)
 dev.off()
 
 plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = method, color = method)) +
-  facet_wrap(c("var_extra", "var_gps"), ncol = 2, scales = "free") + 
+  facet_wrap(c("var_gps", "var_extra"), ncol = 3, scales = "free") + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
   geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
@@ -234,9 +279,10 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
   scale_color_manual(values = nih_distinct) +
   ylab("% Bias") + 
   xlab("Missing amount under MAR") + 
-  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
   theme(legend.title=element_blank(),
         legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        legend.position = "bottom",
         panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
@@ -244,18 +290,14 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
         axis.ticks = element_line(color = nih_distinct[4])) +
-  coord_cartesian(ylim = c(-0.3, 0.25))
+  coord_cartesian(ylim = c(-0.3, 0.3))
 
-emf("td_pb_mar.emf", width = 12, height = 12)
-plot_mar_pb
+emf("td_pb_mar.emf", width = 14, height = 10)
+tag_facet(plot_mar_pb, tag_pool = LETTERS)
 dev.off()
 
-emf("td_pb_mar_mcar.emf", width = 16, height = 10)
-ggarrange(plot_mcar_pb, plot_mar_pb, ncol = 1, labels = "AUTO")
-dev.off()
-
-cairo_pdf("Figure 4 Colour Image.pdf", width = 12, height = 12)
-plot_mar_pb
+cairo_pdf("Figure 4.pdf", width = 14, height = 10)
+tag_facet(plot_mar_pb, tag_pool = LETTERS)
 dev.off()
 
 #--------------------------------Read data and calculate performance measures on the raw data
@@ -275,6 +317,7 @@ for(i in 1:n_sim){
 d_imp_nogps_pos_red = d_imp_nogps_pos %>%
                           mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
                           method == "Mean Imputation - Mean per week" ~ "Mean per week",
+                          method == "MI - PMM" ~ "MI - Predicted Mean Matching",
                           TRUE ~ method))
 
 # Missing Completely at Random
@@ -287,7 +330,7 @@ d_imps = d_imp_nogps_pos_red %>% filter(method != "Complete Case Analysis", imp_
 d_impdata = bind_rows(d_cc, d_imps)
 
 text_size = 18  
-plot_mcar = ggplot(d_impdata, aes(x=td, group = dataset_n)) +
+plot_mcar = ggplot(d_impdata, aes(x=gps_td, group = dataset_n)) +
   facet_wrap(~method, scales = "free") + 
   geom_density(data = d_realdata, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
   geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
@@ -311,7 +354,7 @@ d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %
 d_imps_mar = d_imp_nogps_pos_red %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mar", missing_amount == "strong")
 d_impdata_mar = bind_rows(d_cc_mar, d_imps_mar)
 
-plot_mar = ggplot(d_impdata_mar, aes(x=td, group = dataset_n)) +
+plot_mar = ggplot(d_impdata_mar, aes(x=gps_td, group = dataset_n)) +
   facet_wrap(~method, scales = "free") + 
   geom_density(data = d_realdata_mar, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
   geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
@@ -343,13 +386,11 @@ files_fits = list.files(path = folder_fits)
 n_sim = length(files_fits)/30 # divide by the number of missing type and level combinations
 d_fit_estimates = data.frame()
 for(i in 1:n_sim){
-  temp_data_mcar_noextra = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_d_exdata_td_noextra_mcar_",.,".rds"))) %>% bind_rows() %>% mutate(data = "noextra")
-  temp_data_mcar_pos = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_d_exdata_td_pos_mcar_",.,".rds"))) %>% bind_rows() %>% mutate(data = "pos")
-  temp_data_mcar_srpe_pos = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_d_exdata_td_srpe_pos_mcar_",.,".rds"))) %>% bind_rows() %>% mutate(data = "srpe_pos")
-  d_fit_estimates = rbind(temp_data_mcar_noextra, temp_data_mcar_pos, temp_data_mcar_srpe_pos)
+  temp_data_mcar_noextra = map(missing_prop_mcar, ~readRDS(paste0(folder_fits, i,"_d_td_fits_",.,".rds"))) %>% bind_rows() %>% mutate(data = "noextra")
+  d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar_noextra)
 }
 
-d_fit_estimates = d_fit_estimates %>% mutate(term = ifelse(term == "gps_td", "td", term)) %>% filter(method == "SI - PMM" | method == "MI - PMM")
+d_fit_estimates = d_fit_estimates %>% filter(method == "SI - PMM" | method == "MI - PMM")
 d_td_term = add_target(d_fit_estimates, target_coef)
 
 d_perf = d_td_term %>% 
@@ -368,6 +409,9 @@ d_perf_pb = d_perf %>% select(all_of(key_cols), pb) %>% spread(., key = n_imp, v
 d_perf_se = d_perf %>% select(all_of(key_cols), mean_se) %>% spread(., key = n_imp, value = mean_se)  %>% rename(SE_MI = MI, SE_SI = SI)
 
 d_si_v_mi = d_perf_pb %>% left_join(d_perf_se, by = c("data", "missing_amount"))
+
+d_si_v_mi %>% summarise(mean_mi = mean(abs(PB_MI)), mean_si = mean(abs(PB_SI)), mean_se_mi = mean(SE_MI), mean_se_si = mean(SE_SI))
+
 
 # save dataset
 d_si_v_mi_rounded = d_si_v_mi %>% mutate(SE_MI = round(SE_MI, 7), 
