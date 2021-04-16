@@ -482,14 +482,11 @@ sim_impfit_singleimp = function(d_missing, rep = 1){
 }
 
 sim_impute = function(missing_amount, d, folder_fits, rep){
-  name = as.character(substitute(d))
-
     d_mcar = add_mcar_td(d, missing_amount)
     d_sim_fits_mcar = sim_impfit_singleimp(d_mcar, rep) %>% 
       mutate(missing_type = "mcar", 
-             missing_amount = missing_amount,
-             data_type = name)
-    saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep,"_d_td_fits_", name, "_", missing, "_", missing_amount,".rds"))  
+             missing_amount = missing_amount)
+    saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep, "_d_td_fits_", missing_amount,".rds"))  
 
 }
 
@@ -507,9 +504,7 @@ folder_fits_singleimp = paste0(base_folder, "td_fits_singleimp\\")
 options(warn=-1)
 set.seed = 1234
 n_sim = 1900
-for(i in 1793:n_sim){
+for(i in 1:n_sim){
   missing_prop_mcar %>% walk(~sim_impute(., d_exdata_td_noextra, folder_fits_singleimp, rep = i))
-  missing_prop_mcar %>% walk(~sim_impute(., d_exdata_td_pos, folder_fits_singleimp, rep = i))
-  missing_prop_mcar %>% walk(~sim_impute(., d_exdata_td_srpe_pos, folder_fits_singleimp, rep = i))
 }
 options(warn=0)
