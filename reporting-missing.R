@@ -44,7 +44,9 @@ d_td_full %>% summarise(missing_srpe = sum(is.na(srpe)))
 d_td_full %>% count(missing_srpe, missing_srpe_text)
 
 # how many missing daily total distance?
-d_td_full %>% filter(!is.na(gps_day), missing_player == 0) %>% summarise(missing_td = sum(is.na(gps_td)))
+d_td_full %>% filter(!is.na(gps_day), missing_player == 0) %>% summarise(missing_td = sum(!is.na(gps_td)))
+
+na.omit(d_rpe_full)
 
 #--------------------------------------------------------Figures showing distribution of load values
 
