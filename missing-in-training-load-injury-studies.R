@@ -128,6 +128,32 @@ fig_line = function(d, x, y, title, percent = FALSE){
 # percentage studies that reported missing and assumptions each year
 fig_line(d_dquality, year, prop, "Percentage studies reported missing", TRUE)
 
+#-----------------------------------figure - is %-reported missing stable the last few years?
+
+d_tl_study_before_2021 = d_tl_study %>% filter(year <= 2020)
+
+miss_per_year = d_tl_study_before_2021 %>% group_by(year) %>% summarise(numerator = sum(missing_reported_in_tl_variable == "Yes"), denom = n(), prop = numerator/denom) %>% ungroup()
+
+text_size = 16
+plot_reporting_missing = ggplot(miss_per_year, aes(x = year, y = prop)) +
+  geom_line(color = nih_distinct[4], size = 1) +
+  geom_point(color = nih_distinct[4], size = 3) + 
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) + 
+  scale_x_continuous(breaks = scales::breaks_width(2, 0)) +
+  theme_line(text_size) +
+  xlab(NULL) +
+  ylab("% Studies") +
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        axis.ticks = element_line(color = nih_distinct[4]))
+
+emf("nstudy_missing_reporting_time.emf", width = 6, height = 3)
+plot_reporting_missing
+dev.off()
+# ----------------------------------figure on number of injuries per study
 d_tl_study = d_tl_study %>% 
   mutate(n_over_200 = ifelse(n_injuries_analyses >= 200, 1, 0))
 
