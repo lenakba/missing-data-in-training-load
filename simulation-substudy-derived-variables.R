@@ -5,11 +5,6 @@
 # may be relevant: https://journals.sagepub.com/doi/full/10.1177/0962280214521348
 # definitely relevant: https://stefvanbuuren.name/fimd/sec-knowledge.html 
 
-# so we don't have to deal with scientific notations
-# and strings aren't automaticcaly read as factors
-options(scipen = 17, 
-        stringsAsFactors = FALSE)
-
 # loading packages
 library(tidyverse) # for datawrangling
 library(DBI) # for database extraction with SQL
@@ -17,131 +12,25 @@ library(chron) # for calculating duration
 library(mice) # multiple imputation package
 library(readxl) # reading excel files
 
-# Connecting to database
-db = 'stromsgodset'  #provide the name of your db
-db_port = '5432'  # or any other port specified by the DBA
-db_user = "postgres" 
-db_password = "postgresql"
-db_stromsgodset = dbConnect(RPostgreSQL::PostgreSQL(), dbname = db, port=db_port, user=db_user, password=db_password) 
+# so we don't have to deal with scientific notations
+# and strings aren't automaticcaly read as factors
+options(scipen = 17, 
+        stringsAsFactors = FALSE)
 
-# get sRPE data from database
-d_srpe_full = dbGetQuery(db_stromsgodset, 
-                         paste0("SELECT *
-                  FROM training_data_2019.temp_training_log")) %>% as_tibble() 
-d_srpe_selected = d_srpe_full %>% dplyr::select(player_id, training_date = planned_date, activity, duration, rpe = difficulty, srpe = load)
+# reading data
+folder_data = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
 
-# some players have reported the activity "training" with a duration higher than 0, 
-# yet rpe is set to 0, which means no training was performed
-# we will assume these had a rpe of 1
-# in addition, if activity = training, but duration = 0, we assume rpe and srpe to be 0 too
-# we use the chron package to create duration into a numeric variable
-d_srpe_fixed = d_srpe_selected %>% 
-  mutate(times_tz = chron::times(duration), 
-         minutes = chron::minutes(times_tz), 
-         hours = chron::hours(times_tz),
-         hours_in_minutes = hours*60,
-         minutes_sum = hours_in_minutes+minutes,
-         duration_min = minutes_sum,
-         rpe = ifelse(activity == "Training" & rpe == 0 & duration_min > 0, 1, rpe),
-         rpe = ifelse(activity == "Training" & duration_min == 0, 0, rpe),
-         srpe = duration_min*rpe) %>% # we need to recalculate srpe thanks to that
-  dplyr::select(player_id, training_date, activity, rpe, duration = duration_min, srpe)
+# note that the RPE data is per session (which there can be multiple of per day)
+d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";")
 
-# get baseline variables from excel sheet
-folder = "O:\\Prosjekter\\Dalen-Lorentsen - Belastningsstyring - prosjekt 1 - metode\\Data\\stromsgodset\\raw_data\\"
-d_player = read_excel(paste0(folder, "stromsgodset_players.xlsx")) %>% 
-           mutate(age = as.numeric(difftime(min(d_srpe_fixed$training_date), birth_date, units = "days"))/365) %>% 
-           dplyr::select(-name, -position_group, -birth_date)
+# remove missing
+# select vars we need in the simulation, key variables we think are correlated with the level of sRPE
+keyvars = c("p_id", "training_date", "mc_day", "week_nr")
+d_srpe = d_rpe_full %>% filter(!is.na(rpe) & !is.na(duration)) %>% select(all_of(keyvars), rpe, duration) %>% mutate(srpe = rpe*duration)
 
-d_srpe_baseline = d_srpe_fixed %>% left_join(d_player, by = c( "player_id" = "id"))
-
-
-#-----------Adding days that were guaranteed free days (therefore not missing)
-# We want to make sure that dates where the
-# players didn't participate in any activity are included
-# as these are implicitly sRPE = 0.
-# unless any other information is given, 
-# we will assume that the 2 days after a match, 
-# given that the week has only 1 match, are free days with 0 TD for all players 
-
-# obtaining information about dates
-d_date_full = dbGetQuery(db_stromsgodset, 
-                         paste0("SELECT *
-                  FROM training_data_2019.date_dimension")) %>% as_tibble()
-
-
-# finding number of matches per week
-# add an index with number of matches for each of the weeks
-d_n_matches = d_date_full %>% group_by(week_nr) %>% summarise(n_matches = sum(match_indicator))
-d_date_full = d_date_full %>% left_join(d_n_matches, by = "week_nr")
-
-# Add categorical variable describing each day in relation to match days
-# According to Torstein Dalen-Lorentsen the sequence:
-# M
-# M+1
-# M+2
-# m-4
-# m-3
-# m-2
-# m-1
-# M
-
-# for weeks with 1 match
-d_match_weeks = d_date_full %>% filter(n_matches == 1) 
-d_match_weeks = d_match_weeks %>% mutate(mc_day = case_when(match_indicator ~ "M",
-                                                            lag(match_indicator) ~ "M+1", 
-                                                            lag(match_indicator, 2) ~ "M+2",
-                                                            lead(match_indicator) ~ "M-1",
-                                                            lead(match_indicator, 2) ~ "M-2",
-                                                            lead(match_indicator, 3) ~ "M-3",
-                                                            lead(match_indicator, 4) ~ "M-4")
-)
-
-# some days are missing because the week had the match placed on an untraditional day
-# d_match_weeks %>% filter(is.na(mc_day))
-
-# And for two matches per week or more:
-# M
-# m-2
-# m-1
-# M
-# M-3
-# m-2
-# m-1
-# M
-
-d_match_weeks_dbl = d_date_full %>% filter(n_matches >= 2) 
-d_match_weeks_dbl = d_match_weeks_dbl %>% mutate(mc_day = case_when(match_indicator ~ "M",
-                                                                    lead(match_indicator) ~ "M-1",
-                                                                    lead(match_indicator, 2) ~ "M-2",
-                                                                    lead(match_indicator, 3) ~ "M-3",
-                                                                    lead(match_indicator, 4) ~ "M-4",
-                                                                    lead(match_indicator, 5) ~ "M-5")
-)
-
-# weeks without a match
-d_free_weeks = d_date_full %>% filter(n_matches == 0) %>% mutate(mc_day = "Non-match week")
-
-# combine data
-d_weeks_full = bind_rows(d_free_weeks, d_match_weeks, d_match_weeks_dbl) %>% arrange(training_date)
-
-# this is now the ready date dataset which we will combine later to get days without training
-d_weeks = d_weeks_full %>% select(datekey, training_date, day_of_week, week_nr, match_indicator, n_matches, mc_day)
-
-# adding match week day data to RPE data
-d_srpe_dayinfo = d_srpe_baseline %>% full_join(d_weeks %>% dplyr::select(training_date, n_matches, mc_day), by = "training_date") 
-
-# days that are M+1 or M+2 are rpe, duration and sRPE = 0
-d_srpe_dayinfo  = d_srpe_dayinfo %>% mutate(rpe = ifelse(is.na(rpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, rpe),
-                            duration = ifelse(is.na(duration) & (mc_day == "M+2" | mc_day == "M+1"), 0, duration),
-                            srpe = ifelse(is.na(srpe) & (mc_day == "M+2" | mc_day == "M+1"), 0, srpe))
-
-# fill the baseline variables we know the answer to
-d_srpe = d_srpe_dayinfo %>% arrange(player_id, training_date) %>% 
-         group_by(player_id) %>% 
-         fill(position, age, height) %>% 
-         ungroup() %>% 
-         filter(!is.na(player_id))
+# adding a variable for match
+# under the assumption that this is very predictive of sRPE
+d_srpe = d_srpe %>% mutate(match = ifelse(mc_day == "M", 1, 0))
 
 
 #---------------------------Testing Imputation: creating fake injuries and see which method has the least bias etc
@@ -370,7 +259,7 @@ d_sim_inj = d_srpe %>%
          injury = rbinom(length(inj_prop), 1, prob = inj_prop))
 
 # now we make out example data that we'll remove data from
-d_exdata = d_sim_inj %>% rownames_to_column() %>% dplyr::select(-srpe)
+d_exdata = d_sim_inj %>% rownames_to_column() %>% dplyr::select(-srpe, -inj_prop)
 target_srpe = d_sim_inj$srpe
 
 options(warn=-1)
@@ -378,7 +267,7 @@ set.seed = 1234
 runs = 1900
 target_srpe = d_sim_inj$srpe
 for(i in 1:runs) {
-  d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
+  d_missing = add_mcar(d_exdata, 0.25)
   d_sim_fits = sim_impfit_derivedvar(d_missing, run = i)
   d_sim_imps = sim_imp_derivedvar(d_missing, target_srpe, run = i)
   saveRDS(d_sim_fits, file=paste0(folder_fits, i,"_d_derived_var_fits.rds"))
