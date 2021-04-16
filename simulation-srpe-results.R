@@ -15,6 +15,9 @@ library(mice) # multiple imputation package
 # we assume working directory is the same location as this script
 source("performance-measure-functions.R", encoding = "UTF-8")
 
+# output from the for-loops and functions below are saved as "simulation_results_perfparams_srpe.csv"
+# read the csv file to save time, or run all the for-loops and functions again
+perf_estimates_srpe = read_delim("simulation_results_perfparams_srpe.csv", delim = ";") %>% mutate(var_extra = "No extra variables")
 #--------------------------------Read data and calculate performance measures on model fits
 
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
@@ -35,13 +38,16 @@ for(i in 1:n_sim){
   d_fit_estimates = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
 }
 
+# or, simply read the data
+d_fit_estimates = read_delim("simulation_results_fits_srpe.csv", delim = ";")
+
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
 # using target coefficient is ideal
 # the real coefficient is: 0.003
 target_coef = 0.003
 d_fit_estimates_srpe = d_fit_estimates %>% 
   mutate(target_est = target_coef) %>% 
-  filter(term == "srpe", method != "No Imputation")
+  filter(term == "srpe")
 
 perf_estimates_targetcoef = d_fit_estimates_srpe %>% 
   group_by(method, missing_type, missing_amount) %>% 
@@ -59,14 +65,60 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
 # save results
 # write_delim is preferable, but write_excel_csv is required for excel to understand
 # that the file encoding is UTF-8
-write_excel_csv(perf_estimates_targetcoef, "simulation_results_fits_srpe.csv", delim = ";", na = "")
+write_excel_csv(d_fit_estimates_srpe, "simulation_results_fits_srpe.csv", delim = ";", na = "")
+write_excel_csv(perf_estimates_targetcoef, "simulation_results_perfparams_srpe.csv", delim = ";", na = "")
+
+tab_mar_srpe_full = perf_estimates_srpe %>% filter(missing_type == "mar", method != "No Imputation")
+tab_mar_srpe_mean = tab_mar_srpe_full %>% group_by(method) %>% 
+  mutate_if(is.numeric, abs) %>% 
+  summarise_if(is.numeric, mean) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
+
+tab_mar_srpe = tab_mar_srpe_full %>% 
+  select(-power, -missing_type, -var_extra) %>% 
+  arrange(missing_amount, method) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
+
+tab_mcar_srpe_full = perf_estimates_srpe %>% filter(missing_type == "mcar", method != "No Imputation")
+tab_mcar_srpe_mean = tab_mcar_srpe_full %>% group_by(method) %>% 
+  mutate_if(is.numeric, abs) %>% 
+  summarise_if(is.numeric, mean) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
+
+tab_mcar_srpe = tab_mcar_srpe_full %>% 
+  select(-power, -missing_type, -var_extra) %>% 
+  arrange(missing_amount, method) %>% 
+  mutate(pb = round(pb, 1),
+         rb = round(rb, 8),
+         rmse = round(rmse, 7),
+         coverage = round(coverage, 1),
+         average_width = round(average_width, 7))
+
+write_excel_csv(tab_mar_srpe_mean, "tab_mar_srpe_mean.csv", delim = ";", na = "")
+write_excel_csv(tab_mar_srpe, "tab_mar_srpe.csv", delim = ";", na = "")
+write_excel_csv(tab_mcar_srpe_mean, "tab_mcar_srpe_mean.csv", delim = ";", na = "")
+write_excel_csv(tab_mcar_srpe, "tab_mcar_srpe.csv", delim = ";", na = "")
 
 #------------------- figures
 d_fig = perf_estimates_targetcoef %>% 
   select(method, missing_type, missing_amount, pb, rmse) %>% 
   mutate(pb = pb/100)  %>% 
+  filter(method != "No Imputation") %>% 
   mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
                             method == "Mean Imputation - Mean per week" ~ "Mean per week",
+                            method == "MI - PMM" ~ "MI - Predicted Mean Matching",
                             TRUE ~ method))
 
 d_fig_mcar = d_fig %>% filter(missing_type == "mcar")
@@ -78,7 +130,7 @@ d_fig_mar = d_fig %>% filter(missing_type == "mar") %>%
 library(lmisc) # ggplot2 themes
 library(ggpubr) # for multiple plots in one thanks to ggarrange()
 library(devEMF) # for saving emf files
-text_size = 18
+text_size = 20
 plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
@@ -87,7 +139,7 @@ plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, gr
   geom_point(size = 2)+
   theme_line(text_size, legend = TRUE) +
   scale_color_manual(values = nih_distinct) +
-  scale_y_continuous(labels = axis_percent) +
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
   ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
   scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
@@ -100,7 +152,7 @@ plot_mcar_pb = ggplot(d_fig_mcar, aes(x = as.numeric(missing_amount), y = pb, gr
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
         axis.ticks = element_line(color = nih_distinct[4])) +
-  coord_cartesian(ylim=c(NA, 1.15))
+  coord_cartesian(ylim=c(-0.3, 0.3))
 
 emf("srpe_mcar.emf", width = 12, height = 6)
 plot_mcar_pb
@@ -110,7 +162,7 @@ cairo_pdf("Figure 1 Colour Image.pdf", width = 12, height = 6)
 plot_mcar_pb
 dev.off()
 
-plot_mar_pb =  ggplot(d_fig_mar, aes(x = missing_amount, y = pb, group = method, color = method)) +
+plot_mar_pb = ggplot(d_fig_mar, aes(x = missing_amount, y = pb, group = method, color = method)) +
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
   geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = bjsm_blue) +
@@ -118,7 +170,7 @@ plot_mar_pb =  ggplot(d_fig_mar, aes(x = missing_amount, y = pb, group = method,
   geom_point(size = 2)+
   theme_line(text_size, legend = TRUE) +
   scale_color_manual(values = nih_distinct) +
-  scale_y_continuous(labels = axis_percent) +
+  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
   ylab("% Bias") + 
   xlab("Missing amount under MAR") + 
   theme(legend.title=element_blank(),
@@ -130,7 +182,7 @@ plot_mar_pb =  ggplot(d_fig_mar, aes(x = missing_amount, y = pb, group = method,
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
         axis.ticks = element_line(color = nih_distinct[4])) +
-  coord_cartesian(ylim=c(NA, 1.15))
+  coord_cartesian(ylim=c(-0.3, 0.3))
 
 emf("srpe_mar.emf", width = 12, height = 6)
 plot_mar_pb
@@ -140,7 +192,15 @@ cairo_pdf("Figure 2 Colour Image.pdf", width = 12, height = 7)
 plot_mar_pb
 dev.off()
 
+
+
 #--------------------------------Checking if having the player position changes anything
+# the code below can be skipped by reading in already combined data
+perf_estimates_srpe = read_delim("simulation_results_perfparams_srpe.csv", delim = ";") %>% mutate(var_extra = "Player position not available")
+perf_estimates_srpe_pos = read_delim("simulation_results_perfparams_srpe.csv", delim = ";") %>% mutate(var_extra = "Player position available")
+perf_estimates = bind_rows(perf_estimates_srpe, perf_estimates_srpe_pos)
+
+#--------------------fetching results from when position is among the variables in the imputation model
 
 folder_fits_pos = paste0(base_folder, "srpe_fits_pos\\")
 
@@ -151,8 +211,11 @@ d_fit_estimates_pos = data.frame()
 for(i in 1:n_sim){
   temp_data_mcar = map(missing_prop_mcar, ~readRDS(paste0(folder_fits_pos, i,"_d_srpe_fits_mcar_",.,".rds"))) %>% bind_rows()
   temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_fits_pos, i,"_d_srpe_fits_mar_",.,".rds"))) %>% bind_rows()
-  d_fit_estimates_pos = rbind(d_fit_estimates, temp_data_mcar, temp_data_mar)
+  d_fit_estimates_pos = rbind(d_fit_estimates_pos, temp_data_mcar, temp_data_mar)
 }
+
+# or, simply read the data
+d_fit_estimates = read_delim("simulation_results_fits_srpe_pos.csv", delim = ";")
 
 # comparing estimates to target estimate, the estimate from fitting a logistic regression
 # using target coefficient is ideal
@@ -160,7 +223,7 @@ for(i in 1:n_sim){
 target_coef = 0.003
 d_fit_estimates_srpe_pos = d_fit_estimates_pos %>% 
   mutate(target_est = target_coef) %>% 
-  filter(term == "srpe", method != "No Imputation")
+  filter(term == "srpe")
 
 perf_estimates_targetcoef_pos = d_fit_estimates_srpe_pos %>% 
   group_by(method, missing_type, missing_amount) %>% 
@@ -172,20 +235,22 @@ perf_estimates_targetcoef_pos = d_fit_estimates_srpe_pos %>%
             power = power(p, n()),
             mcse_rmse = mcse_rmse(estimate, target_est, n_sim),
             mcse_coverage = mcse_coverage(CI_low, CI_high, target_est, n(), n_sim)) %>% 
-  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup() %>% mutate(var_combo = "Player position available")
+  arrange(missing_type, missing_amount, desc(rmse)) %>% ungroup()
 
-
-# adding name onto original simulation
-perf_estimates_targetcoef = perf_estimates_targetcoef %>% mutate(var_combo = "Player position not available")
-
-# combining into 1 dataset
-perf_estimates_all = bind_rows(perf_estimates_targetcoef, perf_estimates_targetcoef_pos)
+# save to csv
+# save results
+# write_delim is preferable, but write_excel_csv is required for excel to understand
+# that the file encoding is UTF-8
+write_excel_csv(perf_estimates_targetcoef_pos, "simulation_results_perfparams_srpe_pos.csv", delim = ";", na = "")
+write_excel_csv(d_fit_estimates_pos, "simulation_results_fits_srpe_pos.csv", delim = ";", na = "")
 
 #--------------- Figures
-d_fig_all = perf_estimates_all %>% 
-  select(method, missing_type, missing_amount, pb, rmse, var_combo) %>% mutate(pb = pb/100) %>% 
+d_fig_all = perf_estimates %>% 
+  filter(method != "No Imputation") %>% 
+  select(method, missing_type, missing_amount, pb, rmse, var_extra) %>% mutate(pb = pb/100) %>% 
   mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
                             method == "Mean Imputation - Mean per week" ~ "Mean per week",
+                            method == "MI - PMM" ~ "MI - Predicted Mean Matching",
                             TRUE ~ method))
 d_fig_mcar_all = d_fig_all %>% filter(missing_type == "mcar") 
 d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light",
@@ -195,9 +260,8 @@ library(lmisc) # ggplot2 themes
 library(ggpubr) # for multiple plots in one thanks to ggarrange()
 library(devEMF) # for saving emf files
 text_size = 16
-
 plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
-  facet_wrap(~var_combo) + 
+  facet_wrap(~var_extra) + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
   geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
@@ -218,14 +282,14 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
         axis.ticks = element_line(color = nih_distinct[4])) +
-  coord_cartesian(ylim=c(NA, 1.15))
+  coord_cartesian(ylim=c(NA, 0.4))
 
 emf("srpe_pb_mcar_pos_vs_nopos.emf", width = 12, height = 4)
 plot_mcar_pb
 dev.off()
 
 plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = method, color = method)) +
-  facet_wrap(~var_combo) + 
+  facet_wrap(~var_extra) + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
   geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
@@ -245,7 +309,7 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
         axis.ticks = element_line(color = nih_distinct[4])) +
-  coord_cartesian(ylim=c(NA, 1.15))
+  coord_cartesian(ylim=c(NA, 0.4))
 
 
 emf("srpe_pb_mar_pos_vs_nopos.emf", width = 12, height = 4)
@@ -262,7 +326,7 @@ dev.off()
 
 # where the imputed datasets are saved
 folder_imps = paste0(base_folder, "srpe_imps\\")
-n_sim= 5
+n_sim = 1
 # we assume it is the same number of simulations for both simulations
 # reading the simulated imputation datasets
 files_imps = list.files(path = folder_imps)
@@ -273,20 +337,68 @@ for(i in 1:n_sim){
   d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
 }
 
-perf_esimates_impvalues = d_imp %>% filter(method != "Complete Case Analysis", imp_place == 1) %>% 
-  group_by(missing_type, missing_amount, method) %>% 
-  summarise(rb = raw_bias(srpe, target),
-            pb = percent_bias(srpe, target),
-            rmse = rmse(srpe, target),
-            mcse_rmse = mcse_rmse(srpe, target, n_sim)) %>% 
-  arrange(missing_type, missing_amount, rmse)
+d_imp = d_imp %>%
+  mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
+                            method == "Mean Imputation - Mean per week" ~ "Mean per week",
+                            method == "MI - PMM" ~ "MI - Predicted Mean Matching",
+                            TRUE ~ method))
 
-## TODO visualize imputations
-# densityplot_itt = densityplot(x=imp.itt, data = ~srpe)
-# densityplot_jav = densityplot(x=imp.jav, data = ~srpe)
-# densityplot_pas = densityplot(x=imp.pas, data = ~srpe)
-# densityplot_id = densityplot(x=imp.id, data = ~srpe)
+# Missing Completely at Random
+d_realdata = d_imp %>% filter(missing_type == "mcar", missing_amount == 0.5)
+d_cc_target =  d_realdata %>% filter(method == "Mean per player") %>% select(target) %>% rownames_to_column()
+d_cc = d_imp %>% filter(method == "Complete Case Analysis", missing_type == "mcar", missing_amount == 0.5) %>% select(-target)
+d_cc = d_cc %>% rownames_to_column() %>% full_join(d_cc_target, by = "rowname") %>% fill(method)
+d_realdata = d_realdata %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc)
+d_imps = d_imp %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mcar", missing_amount == 0.5)
+d_impdata = bind_rows(d_cc, d_imps)
 
-# xyplot(imp.itt, injury ~ srpe)
+text_size = 18  
+plot_mcar = ggplot(d_impdata, aes(x=srpe, group = dataset_n)) +
+  facet_wrap(~method, scales = "free") + 
+  geom_density(data = d_realdata, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
+  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
+  xlab("sRPE (AU)") +
+  ylab("Density") + 
+  theme_line(text_size) +
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size + 2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
+  coord_cartesian(xlim=c(NA, 1500), ylim = c(NA, 0.005))
 
-# nested-loop-plot?
+# Missing at Random
+d_realdata_mar = d_imp %>% filter(missing_type == "mar", missing_amount == "strong")
+d_cc_target_mar =  d_realdata_mar %>% filter(method == "Mean per player") %>% select(target) %>% rownames_to_column()
+d_cc_mar = d_imp %>% filter(method == "Complete Case Analysis", missing_type == "mar", missing_amount == "strong") %>% select(-target)
+d_cc_mar = d_cc_mar %>% rownames_to_column() %>% full_join(d_cc_target, by = "rowname") %>% fill(method)
+d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc)
+d_imps_mar = d_imp %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mar", missing_amount == "strong")
+d_impdata_mar = bind_rows(d_cc_mar, d_imps_mar)
+
+plot_mar = ggplot(d_impdata_mar, aes(x=srpe, group = dataset_n)) +
+  facet_wrap(~method, scales = "free") + 
+  geom_density(data = d_realdata_mar, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
+  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
+  xlab("sRPE (AU)") +
+  ylab("Density") + 
+  theme_line(text_size) +
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line(color = nih_distinct[4]),
+        strip.background = element_blank(),
+        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
+        axis.ticks = element_line(color = nih_distinct[4])) +
+  coord_cartesian(xlim=c(NA, 1500), ylim = c(NA, 0.005))
+
+emf("srpe_imp_vs_real_mar.emf", width = 12, height = 8)
+plot_mar
+dev.off()
+
+emf("srpe_imp_vs_real_mcar.emf", width = 12, height = 8)
+plot_mcar
+dev.off()
+
