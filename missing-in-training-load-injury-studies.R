@@ -67,23 +67,7 @@ d_tl_study %>% summarise(n_how_much_missing_player = sum(!is.na(missing_elligble
 d_tl_study %>% summarise(n_how_much_missing_inj = sum(!is.na(missing_injury_perc)), n_studies = n(), prop = n_how_much_missing_inj/n_studies)
 
 
-# function for making a dot plot for a consistent style
-fig_dots = function(d, x, y, title, percent = FALSE){
-  x = enquo(x)
-  y = enquo(y)
-  
-  p = ggplot(d, aes(x = !!x, y = !!y)) +
-    geom_point(size = 3) + 
-    theme_dot() + 
-    ggtitle(title) +
-    xlab(NULL) +
-    ylab(NULL)
-  
-  if(percent){
-    p = p + scale_x_continuous(labels=axis_percent)
-  }
-  p
-}
+d_tl_study %>% filter(!is.na(missing_load_perc)) %>% count(load_variable)
 
 # Massaging data for a figure showing what missing imputation methods publications choose
 # Remove 1 publication that dutifully reported not having any missing data (they don't need methods to handle them then, do they?)
@@ -131,11 +115,13 @@ fig_line(d_dquality, year, prop, "Percentage studies reported missing", TRUE)
 #-----------------------------------figure - is %-reported missing stable the last few years?
 
 d_tl_study_before_2021 = d_tl_study %>% filter(year <= 2020)
+miss_per_year = d_tl_study_before_2021 %>% group_by(year) %>% 
+  summarise(numerator = sum(missing_reported_in_tl_variable == "Yes"), denom = n(), prop = numerator/denom) %>% ungroup()
+miss_per_year = miss_per_year %>% mutate(labels = paste0("(n = ", denom,")"))
 
-miss_per_year = d_tl_study_before_2021 %>% group_by(year) %>% summarise(numerator = sum(missing_reported_in_tl_variable == "Yes"), denom = n(), prop = numerator/denom) %>% ungroup()
 
-text_size = 16
-plot_reporting_missing = ggplot(miss_per_year, aes(x = year, y = prop)) +
+text_size = 18
+plot_reporting_missing = ggplot(miss_per_year, aes(x = year, y = prop, label = labels)) +
   geom_line(color = nih_distinct[4], size = 1) +
   geom_point(color = nih_distinct[4], size = 3) + 
   scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) + 
@@ -150,8 +136,25 @@ plot_reporting_missing = ggplot(miss_per_year, aes(x = year, y = prop)) +
         strip.background = element_blank(),
         axis.ticks = element_line(color = nih_distinct[4]))
 
-emf("nstudy_missing_reporting_time.emf", width = 6, height = 3)
-plot_reporting_missing
+
+# Create a table plot
+library(gridExtra)
+# add 2011 to the denominators
+d_2011 = tribble(~year, ~denom, 2011, 0)
+miss_per_year_2011 = miss_per_year %>% bind_rows(., d_2011) %>% arrange(year)
+labels = miss_per_year_2011 %>% select(denom) %>% rename('n studies' = denom)
+labels_t = t(labels)
+
+# make table to a figure with tableGrob
+tbl <- tableGrob(labels_t, theme = ttheme_minimal(base_size = 14, base_family = "Trebuchet MS"), cols = NULL)
+tbl$widths <- unit(rep(1/ncol(tbl), ncol(tbl)), "npc")
+
+# save table and figure combined
+emf("nstudy_missing_reporting_time.emf", width = 10, height = 5)
+grid.arrange(plot_reporting_missing, 
+             tbl,
+             heights=c(3,1)
+)
 dev.off()
 # ----------------------------------figure on number of injuries per study
 d_tl_study = d_tl_study %>% 
