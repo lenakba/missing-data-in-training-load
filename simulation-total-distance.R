@@ -239,7 +239,7 @@ target_param = get_params(fit.target, "No Imputation")
 # in a real life situation
 # select vars we need in the simulation, key variables we think are correlated with the level of total distance
 keyvars = c("p_id", "training_date", "mc_day", "week_nr")
-d_exdata = d_td %>% select(all_of(keyvars), match, injury, starts_with("gps"), position, srpe)
+d_exdata = d_td %>% select(all_of(keyvars), match, injury, starts_with("gps"), srpe)
 
 # for missing at random, we create fake variables with correlation to the amount of missing
 # we add fake age and sex, and we use the day of the week to determine weekend
