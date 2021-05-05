@@ -372,7 +372,7 @@ d_load_anon = d_load_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-playe
 d_srpe_anon = d_srpe_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
 # select wanted columns in the order that we want them
-shared_vars = c("p_id", "training_date", "day_of_week", "mc_day", "week_nr", "position")
+shared_vars = c("p_id", "training_date", "day_of_week", "mc_day", "week_nr")
 d_load_final = d_load_anon %>% select(all_of(shared_vars), srpe, ends_with("daily"), starts_with("missing"), gps_day)
 d_srpe_final = d_srpe_anon %>% select(all_of(shared_vars), rpe, duration, starts_with("missing"))
 
