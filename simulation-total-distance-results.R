@@ -349,8 +349,8 @@ plot_mcar = ggplot(d_impdata, aes(x=gps_td, group = dataset_n)) +
 d_realdata_mar = d_imp_nogps_pos_red %>% filter(missing_type == "mar", missing_amount == "strong")
 d_cc_target_mar =  d_realdata_mar %>% filter(method == "Mean per player") %>% select(target) %>% rownames_to_column()
 d_cc_mar = d_imp_nogps_pos_red %>% filter(method == "Complete Case Analysis", missing_type == "mar", missing_amount == "strong") %>% select(-target)
-d_cc_mar = d_cc_mar %>% rownames_to_column() %>% full_join(d_cc_target, by = "rowname") %>% fill(method)
-d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc)
+d_cc_mar = d_cc_mar %>% rownames_to_column() %>% full_join(d_cc_target_mar, by = "rowname") %>% fill(method)
+d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc_mar)
 d_imps_mar = d_imp_nogps_pos_red %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mar", missing_amount == "strong")
 d_impdata_mar = bind_rows(d_cc_mar, d_imps_mar)
 
@@ -404,37 +404,19 @@ key_cols = c("data", "missing_amount", "n_imp")
 d_perf = d_perf %>% mutate(n_imp = ifelse(str_detect(d_perf$method, "SI"), "SI", "MI")) %>% 
   arrange(data, method,missing_amount) %>% select(-method)
 
-
 d_perf_pb = d_perf %>% select(all_of(key_cols), pb) %>% spread(., key = n_imp, value = pb) %>% rename(PB_MI = MI, PB_SI = SI)
 d_perf_se = d_perf %>% select(all_of(key_cols), mean_se) %>% spread(., key = n_imp, value = mean_se)  %>% rename(SE_MI = MI, SE_SI = SI)
-
 d_si_v_mi = d_perf_pb %>% left_join(d_perf_se, by = c("data", "missing_amount"))
 
+# calculate the mean for the table
 d_si_v_mi %>% summarise(mean_mi = mean(abs(PB_MI)), mean_si = mean(abs(PB_SI)), mean_se_mi = mean(SE_MI), mean_se_si = mean(SE_SI))
 
 
-# save dataset
+# save dataset used for table
 d_si_v_mi_rounded = d_si_v_mi %>% mutate(SE_MI = round(SE_MI, 7), 
                                          SE_SI = round(SE_SI, 7),
                                          PB_MI = round(PB_MI, 1),
                                          PB_SI = round(PB_SI, 1))
 write_excel_csv(d_si_v_mi_rounded, "td_si_vs_mi.csv", delim = ";", na = "")
 
-#TODO? calc performance measures of imputed values
-perf_esimates_impvalues = d_imp_nogps_pos %>% filter(method != "Complete Case Analysis", imp_place == 1) %>% 
-  group_by(missing_type, missing_amount, method) %>% 
-  summarise(rb = raw_bias(td, target),
-            pb = percent_bias(td, target),
-            rmse = rmse(td, target)) %>% 
-  arrange(missing_type, missing_amount, rmse)
-
-## TODO visualize imputations
-# densityplot_itt = densityplot(x=imp.itt, data = ~td)
-# densityplot_jav = densityplot(x=imp.jav, data = ~td)
-# densityplot_pas = densityplot(x=imp.pas, data = ~td)
-# densityplot_id = densityplot(x=imp.id, data = ~td)
-
-# xyplot(imp.itt, injury ~ td)
-
-# nested-loop-plot?
 
