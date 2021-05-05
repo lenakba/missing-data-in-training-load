@@ -18,6 +18,7 @@ source("performance-measure-functions.R", encoding = "UTF-8")
 # output from the for-loops and functions below are saved as "simulation_results_perfparams_srpe.csv"
 # read the csv file to save time, or run all the for-loops and functions again
 perf_estimates_srpe = read_delim("simulation_results_perfparams_srpe.csv", delim = ";") %>% mutate(var_extra = "No extra variables")
+
 #--------------------------------Read data and calculate performance measures on model fits
 
 base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
@@ -68,7 +69,7 @@ perf_estimates_targetcoef = d_fit_estimates_srpe %>%
 write_excel_csv(d_fit_estimates_srpe, "simulation_results_fits_srpe.csv", delim = ";", na = "")
 write_excel_csv(perf_estimates_targetcoef, "simulation_results_perfparams_srpe.csv", delim = ";", na = "")
 
-tab_mar_srpe_full = perf_estimates_srpe %>% filter(missing_type == "mar", method != "No Imputation")
+tab_mar_srpe_full = perf_estimates_targetcoef %>% filter(missing_type == "mar", method != "No Imputation")
 tab_mar_srpe_mean = tab_mar_srpe_full %>% group_by(method) %>% 
   mutate_if(is.numeric, abs) %>% 
   summarise_if(is.numeric, mean) %>% 
@@ -79,7 +80,7 @@ tab_mar_srpe_mean = tab_mar_srpe_full %>% group_by(method) %>%
          average_width = round(average_width, 7))
 
 tab_mar_srpe = tab_mar_srpe_full %>% 
-  select(-power, -missing_type, -var_extra) %>% 
+  select(-power, -missing_type) %>% 
   arrange(missing_amount, method) %>% 
   mutate(pb = round(pb, 1),
          rb = round(rb, 8),
@@ -98,7 +99,7 @@ tab_mcar_srpe_mean = tab_mcar_srpe_full %>% group_by(method) %>%
          average_width = round(average_width, 7))
 
 tab_mcar_srpe = tab_mcar_srpe_full %>% 
-  select(-power, -missing_type, -var_extra) %>% 
+  select(-power, -missing_type) %>% 
   arrange(missing_amount, method) %>% 
   mutate(pb = round(pb, 1),
          rb = round(rb, 8),
@@ -322,7 +323,7 @@ ggarrange(plot_mcar_pb, plot_mar_pb, ncol = 1, labels = "AUTO")
 dev.off()
 
 
-#--------------------------------Read data and calculate performance measures on the raw data
+#--------------------------------Compare real vs. imputed data
 
 # where the imputed datasets are saved
 folder_imps = paste0(base_folder, "srpe_imps\\")
@@ -336,6 +337,24 @@ for(i in 1:n_sim){
   temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_imps, i,"_d_srpe_imps_mar_",.,".rds"))) %>% bind_rows()
   d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
 }
+
+# error in the imputation model caused regression imputation and PMM to have to be run again
+# replace old values with the new results after fixing the issue, then make the figures
+folder_imps = paste0(base_folder, "srpe_imps_mar\\")
+n_sim = 1
+# we assume it is the same number of simulations for both simulations
+# reading the simulated imputation datasets
+files_imps = list.files(path = folder_imps)
+d_imp = data.frame()
+for(i in 1:n_sim){
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_imps, i,"_d_srpe_fits_",.,".rds"))) %>% bind_rows()
+  d_imp_mar = rbind(d_imp, temp_data_mar)
+}
+
+d_imp = d_imp %>% mutate(index = 1:n())
+ting = d_imp %>% filter((method == "MI - PMM" | method == "Regression Imputation") & missing_type == "mar") 
+d_imp_mar = d_imp_mar %>% mutate(missing_type = "mar")
+d_imp = bind_rows(d_imp %>% filter(!index %in% ting$index) %>% select(-index), d_imp_mar) 
 
 d_imp = d_imp %>%
   mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
@@ -373,11 +392,12 @@ plot_mcar = ggplot(d_impdata, aes(x=srpe, group = dataset_n)) +
 d_realdata_mar = d_imp %>% filter(missing_type == "mar", missing_amount == "strong")
 d_cc_target_mar =  d_realdata_mar %>% filter(method == "Mean per player") %>% select(target) %>% rownames_to_column()
 d_cc_mar = d_imp %>% filter(method == "Complete Case Analysis", missing_type == "mar", missing_amount == "strong") %>% select(-target)
-d_cc_mar = d_cc_mar %>% rownames_to_column() %>% full_join(d_cc_target, by = "rowname") %>% fill(method)
-d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc)
+d_cc_mar = d_cc_mar %>% rownames_to_column() %>% full_join(d_cc_target_mar, by = "rowname") %>% fill(method)
+d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc_mar)
 d_imps_mar = d_imp %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mar", missing_amount == "strong")
 d_impdata_mar = bind_rows(d_cc_mar, d_imps_mar)
 
+library(lmisc)
 plot_mar = ggplot(d_impdata_mar, aes(x=srpe, group = dataset_n)) +
   facet_wrap(~method, scales = "free") + 
   geom_density(data = d_realdata_mar, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
@@ -394,6 +414,7 @@ plot_mar = ggplot(d_impdata_mar, aes(x=srpe, group = dataset_n)) +
         axis.ticks = element_line(color = nih_distinct[4])) +
   coord_cartesian(xlim=c(NA, 1500), ylim = c(NA, 0.005))
 
+library(devEMF)
 emf("srpe_imp_vs_real_mar.emf", width = 12, height = 8)
 plot_mar
 dev.off()
@@ -401,4 +422,3 @@ dev.off()
 emf("srpe_imp_vs_real_mcar.emf", width = 12, height = 8)
 plot_mcar
 dev.off()
-
