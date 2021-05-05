@@ -367,9 +367,10 @@ set.seed(1234) # in case we need to run this script and create the data again
 # use the anonymization function to easily anonymize the data
 # the new ID has nothing to do with the old one
 # the function creates the same ids for the gps data as for the srpe per session data no problemo
-ano_func = make_anonymize_func(d_load$player_id)
-d_load_anon = d_load_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) # remove old ID
-d_srpe_anon = d_srpe_full_dt %>% mutate(p_id = ano_func(player_id)) %>% select(-player_id) 
+ano_func1 = make_anonymize_func(d_load$player_id)
+ano_func2 = make_anonymize_func(d_load$player_id)
+d_load_anon = d_load_dt %>% mutate(p_id = ano_func1(player_id)) %>% select(-player_id) # remove old ID
+d_srpe_anon = d_srpe_full_dt %>% mutate(p_id = ano_func2(player_id)) %>% select(-player_id) 
 #---------------------------------------- Step 9 save the final dataset to be used in simulations
 # select wanted columns in the order that we want them
 shared_vars = c("p_id", "training_date", "day_of_week", "mc_day", "week_nr")
