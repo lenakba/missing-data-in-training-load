@@ -145,17 +145,6 @@ imp.pmm$srpe = with(imp.pmm, rpe*duration)
 mids.itt.pmm = as.mids(imp.pmm)
 ```
 
-It can be a good idea to check whether 
-the imputed data follows the same distribution
-as the real data. The `mice` package comes
-with a very handy `densityplot()`
-function that does this for us. Red are the imputed datasets,
-blue are the original data. 
-
-```{r imp_vs_real, warning=FALSE, echo = TRUE, message=FALSE}
-densityplot(x=mids.itt.pmm, data = ~rpe + duration)
-```
-
 We can then fit our logistic regression model, 
 with injury as the response variable and
 sRPE the independent variable,
@@ -232,17 +221,6 @@ take a while, commonly several minutes for large datasets.
 
 ```{r mi_pmm_td, warning=FALSE, echo = TRUE, message=FALSE}
 mids.pmm.gps = mice(d_td_missing, print = FALSE, seed = 1234, m = 5)
-```
-
-It can be a good idea to check whether 
-the imputed data follows the same distribution
-as the real data. The `mice` package comes
-with a very handy `densityplot()`
-function that does this for us. Red are the imputed datasets,
-blue are the original data.
-
-```{r imp_vs_real_td, warning=FALSE, echo = TRUE, message=FALSE}
-densityplot(x=mids.pmm.gps, data = ~gps_td)
 ```
 
 We can then fit our logistic regression model, 
@@ -371,11 +349,58 @@ method_srpe["injury"] = ""
 mids.pmm.noinjury = mice(d_rpe_missing, method = method_srpe, print = FALSE, seed = 1234)
 ```
 
+## How much missing data is too much for multiple imputation?
 
+The proportion of missing data should, in general, not be used to determine
+whether to use multiple imputation or not. So long as the imputation model
+is specified correctly, multiple imputation with predicted mean matching 
+can perform even under 80% and 90% missing data (Madley-Dowd et al. 2019, 
+https://www.sciencedirect.com/science/article/pii/S0895435618308710).
+Consider the case of having 100 000 rows of data, and 90% are missing. 
+In this scenario, there are still 10 000 rows of observations that can 
+inform an imputation model. Given that the remaining 10% of observations are
+representative of the population, and are of a reasonable sample size,
+multiple imputation can safely be performed.
 
+However, missing training load observations may be under the assumption of 
+Missing Not at Random (MNAR). Such missing data patterns arise when the probability
+og missing is either 1) dependent on unobserved variables or 2) dependent on the 
+the data that is missing. For instance, if athletes neglect to report RPE on
+intense training days, the data are MNAR, as the probability of missing is dependent
+on the RPE values themselves - the higher RPE, the higher chance of missing. 
+This causes selection bias. No method for dealing with missing data can solve MNAR.
 
+Predicted mean matching is a method that selects values at random from
+a handful of so-called "donor" rows. If the sample size is too small, 
+it risks picking the same donor repeatedly, essentially 
+creating countless duplicates. The number of non-missing observations is
+therefore more important to consider than the percentage missing
+when determining whether to impute or not. 
 
+## Validating the imputation
 
+After imputing the data, it can useful to determine
+whether it was successful with visual inspections. 
+This can be used to identify misspecification errors or
+determine in which direction the imputed values are biased.
+
+The `mice` package comes
+with a very handy `densityplot()`
+function that compares the distribution of the real data vs. 
+that of the imputed data. Red are the imputed datasets,
+blue are the original data.
+
+For session RPE:
+
+```{r imp_vs_real, warning=FALSE, echo = TRUE, message=FALSE}
+densityplot(x=mids.itt.pmm, data = ~rpe + duration)
+```
+
+For total distance:
+
+```{r imp_vs_real_td, warning=FALSE, echo = TRUE, message=FALSE}
+densityplot(x=mids.pmm.gps, data = ~gps_td)
+```
 
 
 
