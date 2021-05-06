@@ -318,7 +318,10 @@ interactions effects and other complexities."
 https://stefvanbuuren.name/fimd/sec-modelform.html#sec:predictors 
 
 The following section has some advice for the case 
-of tremendous number of predictors available: https://stefvanbuuren.name/fimd/sec-toomany.html 
+of tremendous number of predictors available: https://stefvanbuuren.name/fimd/sec-toomany.html . 
+When in doubt, IC methods (AIC, BIC) can be used to determine
+the imputation model 
+(Noghrehchi et al 2021, https://onlinelibrary.wiley.com/doi/full/10.1002/sim.8915).
 
 The `mice()` function from the `mice` package checks for 
 linear dependencies during the imputation iterations, 
