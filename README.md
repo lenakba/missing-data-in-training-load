@@ -1,2 +1,2 @@
-# missing-data-private
-repository for working with the missing data project
+# missing-data-in-training-load
+repository for code used in the missing data article.
