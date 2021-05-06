@@ -7,6 +7,7 @@ output:
   word_document: default
   html_document:
     toc: yes
+sansfont: Calibri
 editor_options:
   chunk_output_type: console
 ---
@@ -19,13 +20,16 @@ were followed in the missing data study, and will provide the basis for this gui
 For å general guide on performing mulitple imputation in R, see:
 https://stefvanbuuren.name/fimd/workflow.html 
 
-# Preparation
+# Data preparation
 
 First, load required packages.
+Multivariate Imputation by Chained Equations (MICE) is for multiple imputation.
+`tidyverse` is for miscellaneous functions for reading data and
+working with list objects.
 
 ```{r packages, warning=FALSE, echo = TRUE, message=FALSE}
-library(mice) # Multivariate Imputation by Chained Equations (MICE) for multiple imputation
-library(tidyverse) # readr for reading data, ggplot2 for figures ++
+library(mice)
+library(tidyverse)
 ```
 
 Next step is to load your data. Here we load 
