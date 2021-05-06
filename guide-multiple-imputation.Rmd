@@ -35,10 +35,10 @@ We add missing to the datasets at random so we can impute them in the next step.
 If you have your own dataset, you can simply load the data and skip ahead to the next chapter.
 
 ```{r load data, warning=FALSE, echo = TRUE, message=FALSE}
-d_rpe_full = read_csv2("norwegian_premier_league_football_rpe_anon.csv")
-d_td_full = read_csv2("norwegian_premier_league_football_td_anon.csv") %>% 
+d_rpe_full = read_delim("norwegian_premier_league_football_rpe_anon.csv", delim = ";")
+d_td_full = read_delim("norwegian_premier_league_football_td_anon.csv", delim = ";") %>% 
   rename(gps_td = total_distance_daily, gps_v4 = v4_distance_daily, 
-         gps_v5 = v5_distance_daily, gps_pl = player_load_daily)
+         gps_v5 = v5_distance_daily, gps_pl = player_load_daily) %>% select(-gps_day)
 
 # we remove all inherent missing for sake of the example
 d_rpe_nomissing = na.omit(d_rpe_full)
@@ -69,7 +69,7 @@ d_srpe = d_rpe_nomissing %>%
 
 # remove variables we in theory wouldn't know about
 # in a real life situation
-d_srpe = d_srpe %>% dplyr::select(-inj_prop, -srpe)
+d_srpe = d_srpe %>% dplyr::select(-inj_prop, -srpe, -starts_with("missing"))
 
 # repeat for total distance
 inj_probability_td = function(gps_td){
@@ -119,21 +119,24 @@ d_td_missing = add_mcar_td(d_td, 0.25)
 
 # Imputing session RPE
 
-sRPE is a little bit trickier than the GPS data since 
-it is a derived variable. We tested different ways to impute sRPE
+sRPE is a derived variable. We tested different ways to impute sRPE
 and found out that the best method (the one with least bias)
 was imputing duration and rpe before calculating sRPE (Impute, then transform).
 
 Imputation using multiple imputation and predicted mean matching code below.
 The default method in `mice` is PMM, and the default number of datasets is 5.
 For PMM, the default number of donors is also 5.
-However, you can change the number of datasets with the argument `m`
+However, you can change the number of datasets with the argument `m`.
+`print = FALSE` ensures we don't have to see each iteration printed in the 
+console, but you can set it to `TRUE` if you would like to be 
+assured that the command is actually running. Sometimes, MI can
+take a while, commonly several minutes for large datasets.
 
 ```{r mi_pmm, warning=FALSE, echo = TRUE, message=FALSE}
 mids.pmm = mice(d_rpe_missing, print = FALSE, seed = 1234, m = 5)
 ```
 
-Then, we need to tell R to derive the sRPE in our imputed objects, 
+Then, we need to tell R to calculate the sRPE in our imputed objects, 
 which is done here:
 
 ```{r mulitplication, warning=FALSE, echo = TRUE, message=FALSE}
@@ -176,11 +179,11 @@ command from base R. Here we provide an example
 using a mixed model with a random intercept per player,
 with the `glmer()` command from the `lme4` package.
 The `lme4` package is not entirely compatible with the 
-`MICE` package, so we'd have to do this if we wanted to 
+`mice` package, so we'd have to do this if we wanted to 
 run a mixed model.
 
-Note that the `map()` function from 
-the `purrr` package provided by `tidyverse`
+Note that the `map()` function 
+provided by the `tidyverse` package
 ensures that the model is run on each dataset in the list.
 
 ```{r list_srpe, warning=FALSE, echo = TRUE, message=FALSE}
@@ -195,7 +198,8 @@ fit_mixed = list.pmm %>% map(glmer, formula = injury ~ srpe + (1 | p_id), family
 
 If you want to look at the imputed datasets 
 in a regular dataframe, we can convert our 
-list with the following code using the `tidyverse` package.
+list with the following code using the 
+`tidyverse` package.
 
 The `imap` command adds an index to each
 dataset so we can tell which row belongs to which
@@ -208,6 +212,170 @@ used as any ordinary dataframe object.
 list.pmm = list.pmm %>% imap(., ~mutate(., dataset_n = .y)) 
 d.pmm = list.pmm %>%  bind_rows()
 ```
+
+
+# Imputing GPS measures (Total distance)
+
+Imputing total distance or any other GPS
+measure isn't very different from imputing sRPE.
+The main difference is that we can skip a step, 
+since GPS measures are not derived variables. 
+
+Imputation using multiple imputation and predicted mean matching code below.
+The default method in `mice` is PMM, and the default number of datasets is 5.
+For PMM, the default number of donors is also 5.
+However, you can change the number of datasets with the argument `m`.
+`print = FALSE` ensures we don't have to see each iteration printed in the 
+console, but you can set it to `TRUE` if you would like to be 
+assured that the command is actually running. Sometimes, MI can
+take a while, commonly several minutes for large datasets.
+
+```{r mi_pmm_td, warning=FALSE, echo = TRUE, message=FALSE}
+mids.pmm.gps = mice(d_td_missing, print = FALSE, seed = 1234, m = 5)
+```
+
+It can be a good idea to check whether 
+the imputed data follows the same distribution
+as the real data. The `mice` package comes
+with a very handy `densityplot()`
+function that does this for us. Red are the imputed datasets,
+blue are the original data.
+
+```{r imp_vs_real_td, warning=FALSE, echo = TRUE, message=FALSE}
+densityplot(x=mids.pmm.gps, data = ~gps_td)
+```
+
+We can then fit our logistic regression model, 
+with injury as the response variable and
+sRPE the independent variable,
+using this mids object.
+The `pool()` command automatically
+pools the fitted estimates into one summary
+using Rubin's rules. 
+
+```{r fit_td, warning=FALSE, echo = TRUE, message=FALSE}
+fit.pmm.gps =  with(mids.pmm.gps, glm(injury ~ gps_td, family = binomial))
+fit.pmm.gps.pooled = pool(fit.pmm.gps)
+summary(fit.pmm.gps.pooled, "all", conf.int = TRUE)
+```
+
+If you have missing in multiple
+variables, there is no need to impute then 
+one by one in individual commands. 
+By default, all variables in the dataset will be used in the
+imputation model. Imputed observations will provide information
+for imputation of missing observations that have not
+been imputed yet. 
+
+Here is an example where we add intermittent missing in both
+total distance and in the high-speed running distance, then impute 
+the data.
+
+```{r mi_pmm_multvar, warning=FALSE, echo = TRUE, message=FALSE}
+add_mcar_hsr = function(d, missing_prop){
+  n_values = nrow(d)
+  d = d %>% rownames_to_column()
+  random_spots_td = sample(1:n_values, round(missing_prop*n_values))
+  d = d %>% mutate(gps_v4 = ifelse(rowname %in% random_spots_td, NA, gps_v4)) %>% 
+      dplyr::select(-rowname)
+  d
+}
+
+# create missing
+d_td_missing_multvar = add_mcar_hsr(d_td_missing, 0.25)
+
+# impute both total distance and high-speed running distance in the same dataset
+mids.pmm.gps.multvar = mice(d_td_missing_multvar, print = FALSE, seed = 1234, m = 5)
+```
+
+We can see which methods were used to impute the data
+by running
+
+```{r method_matrix, warning=FALSE, echo = TRUE, message=FALSE}
+mids.pmm.gps.multvar$method
+```
+
+In our results, it shows that both total distance and gps_v4 was imputed with PMM,
+the default. 
+
+The predictor matrix shows which variables were used in the imputation model.
+A 1 indicates the variable is used to impute another, a 0 that it was not.
+
+```{r predmatrix, warning=FALSE, echo = TRUE, message=FALSE}
+mids.pmm.gps.multvar$predictorMatrix
+```
+
+The predictor matrix is useful if we know certain variables should not be in 
+the imputation model. See the section Pitfalls and other details
+for more information of variables to watch out for. 
+Below is an example where we remove the sRPE from the
+imputation model before we impute the data.
+
+```{r remove_srpe, warning=FALSE, echo = TRUE, message=FALSE}
+predmatrix_td = make.predictorMatrix(d_td_missing_multvar)
+predmatrix_td["gps_td", "srpe"] = 0
+mids.pmm.gps.nosrpe = mice(d_td_missing_multvar, pred = predmatrix_td, print = FALSE, seed = 1234)
+```
+
+# Pitfalls and other details
+
+## Imputation model specification
+
+In general, misspecification of the imputation model
+can affect the estimates. Predicted mean matching (PMM)
+is fairly robust to misspecification compared to other methods.
+However, it can still cause bias if the imputation model is poor.
+For one, three or fewer predictors have shown to decrease the performance
+of PMM. This may also hold true for too weak predictors.
+It is therefore advised to use as much information as available.
+
+"Conditioning on all other data is often reasonable 
+for small to medium datasets, containing up to, say, 
+20–30 variables, without derived variables, 
+interactions effects and other complexities."
+https://stefvanbuuren.name/fimd/sec-modelform.html#sec:predictors 
+
+The following section has some advice for the case 
+of tremendous number of predictors available: https://stefvanbuuren.name/fimd/sec-toomany.html 
+
+The `mice()` function from the `mice` package checks for 
+linear dependencies during the imputation iterations, 
+and temporarily removes predictors from the 
+imputation models where needed. This includes variables
+that are identified as constant or which have collinearity
+issues. 
+
+Note that if the missing data is considered to be under the assumption
+of missing at random, meaning the probability of missing is dependent 
+on other variables in the data, the variables for which the missing is dependent upon
+should not be in the imputation model for PMM. The degree to which this affects
+the estimates depends on how strongly the variable predicts missing 
+(see 3.4.4 Pitfalls in this section: https://stefvanbuuren.name/fimd/sec-pmm.html).
+This is especially important for session RPE which was found to be missing at random in
+a study on missing RPE (Benson et al. 2021, https://www.jssm.org/researchjssm-20-188.xml.xml). 
+
+Do not fear including the response variable (here, injury) in the imputation model.
+Moons et al. 2006 (https://www.sciencedirect.com/science/article/pii/S0895435606000606) 
+shows that it improves the imputation model, and Sterne et al. 2009 highlights not including
+the response variable as a typical pitfall in epidemiological studies 
+(https://www.bmj.com/content/338/bmj.b2393/). The response variable itself, however, should not
+be imputed unconsciously (see Peters et al. 2012 https://www.sciencedirect.com/science/article/pii/S0895435611003878). 
+
+Using injury as a predictor for imputing training load, 
+but not imputing injury can
+be specified as follows:
+
+```{r remove_injury, warning=FALSE, echo = TRUE, message=FALSE}
+method_srpe = make.method(d_rpe_missing)
+method_srpe["injury"] = ""
+mids.pmm.noinjury = mice(d_rpe_missing, method = method_srpe, print = FALSE, seed = 1234)
+```
+
+
+
+
+
+
 
 
 
