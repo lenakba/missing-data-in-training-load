@@ -3,30 +3,25 @@
 
 library(tidyverse) # for datawrangling
 library(readxl) # for reading .xlsx files
-library(lmisc) # ggplot2 themes etc.
 library(devEMF) # to save emf files
-library(scales) # malipulating numeric scales
+library(scales) # manipulating numeric scales
 
 #-----------------------------------------------------Data preparation
 
 # reading data
-folder_data = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
+folder_data = paste0("my\\data\\location")
 d_tl_study_full = read_excel(paste0(folder_data, "studies_missing_reporting.xlsx"))
 
 # selecting the variables needed for these analyses
 key_vars = c("study_id", "author_first", "year", "title")
-base_vars = c("sport", "population_sex", "population_mean_age", "load_variable", "access")
+base_vars = c("sport", "population_sex", "population_mean_age", "load_variable")
 d_tl_study_selected = d_tl_study_full %>% select(all_of(key_vars), all_of(base_vars), starts_with("study_length"), starts_with("n_"), starts_with("missing"), starts_with("review_"))
 
-# filtering on inclusion criteria
-# has access
-d_tl_study_access = d_tl_study_selected %>% filter(access == "Yes")
+# number of studies initially
+nrow(d_tl_study_selected)
 
 # study year >= 2010
-d_tl_study_recent = d_tl_study_access %>% filter(year >= 2010)
-
-# study is in either of the Reviews, or is study year >= 2019
-d_tl_study = d_tl_study_recent %>% filter_at(vars(starts_with("review")), any_vars(. == "Yes" | year >= 2019))
+d_tl_study = d_tl_study_selected %>% filter(year >= 2010)
 
 #-------------------------------------------- Study characteristics
 # percentage that reported the number of injuries in the study
@@ -58,13 +53,13 @@ calc_perc(missing_reported_in_tl_variable)
 
 # mean amount of missing
 missing_n_vars = c("missing_load_perc", "missing_injury_perc", "missing_elligble_players_perc")
-d_tl_study %>% summarise_at(vars(all_of(missing_n_vars)), ~mean(., na.rm = TRUE))
-d_tl_study %>% summarise_at(vars(all_of(missing_n_vars)), ~sd(., na.rm = TRUE))
+d_tl_study %>% filter(missing_reported_in_tl_variable == "Yes") %>% summarise_at(vars(all_of(missing_n_vars)), ~mean(., na.rm = TRUE))
+d_tl_study %>% filter(missing_reported_in_tl_variable == "Yes") %>% summarise_at(vars(all_of(missing_n_vars)), ~sd(., na.rm = TRUE))
 
 # how many report how much missing?
 d_tl_study %>% summarise(n_how_much_missing = sum(!is.na(missing_load_perc)), n_studies = n(), prop = n_how_much_missing/n_studies)
-d_tl_study %>% summarise(n_how_much_missing_player = sum(!is.na(missing_elligble_players_perc)), n_studies = n(), prop = n_how_much_missing_player/n_studies)
-d_tl_study %>% summarise(n_how_much_missing_inj = sum(!is.na(missing_injury_perc)), n_studies = n(), prop = n_how_much_missing_inj/n_studies)
+d_tl_study %>% filter(missing_reported_in_tl_variable == "Yes") %>% summarise(n_how_much_missing_player = sum(!is.na(missing_elligble_players_perc)), n_studies = n(), prop = n_how_much_missing_player/n_studies)
+d_tl_study %>% filter(missing_reported_in_tl_variable == "Yes") %>% summarise(n_how_much_missing_inj = sum(!is.na(missing_injury_perc)), n_studies = n(), prop = n_how_much_missing_inj/n_studies)
 
 
 d_tl_study %>% filter(!is.na(missing_load_perc)) %>% count(load_variable)
@@ -82,36 +77,6 @@ n_missing = nrow(d_missing)
 
 d_missing_methods %>% arrange(desc(prop))
 
- emf("n_missing_methods.emf", width = 6, height = 3)
-fig_dots(d_missing_methods, prop, mmethod_fct, paste0("Methods used for handling missing data (n = ",n_missing,")"), percent = TRUE)
- dev.off()
-
-
-
-# function for making a line-chart with a consistent style. 
-fig_line = function(d, x, y, title, percent = FALSE){
-  x = enquo(x)
-  y = enquo(y)
-  
-  p = ggplot(d, aes(x = !!x, y = !!y, group = 1)) +
-    geom_line(color = nih_distinct[2], size = 1) +
-    geom_point(color = nih_distinct[2], size = 2) +
-    theme_line() +
-    ylab(NULL) +
-    ggtitle(title) +
-    xlab(NULL) +
-    scale_x_continuous(breaks = breaks_width(2, 1))
-  
-  if(percent){
-    p = p + scale_y_continuous(labels = axis_percent)
-    p
-  }
-  p
-}
-
-# percentage studies that reported missing and assumptions each year
-fig_line(d_dquality, year, prop, "Percentage studies reported missing", TRUE)
-
 #-----------------------------------figure - is %-reported missing stable the last few years?
 
 d_tl_study_before_2021 = d_tl_study %>% filter(year <= 2020)
@@ -120,21 +85,17 @@ miss_per_year = d_tl_study_before_2021 %>% group_by(year) %>%
 miss_per_year = miss_per_year %>% mutate(labels = paste0("(n = ", denom,")"))
 
 
-text_size = 18
 plot_reporting_missing = ggplot(miss_per_year, aes(x = year, y = prop, label = labels)) +
-  geom_line(color = nih_distinct[4], size = 1) +
-  geom_point(color = nih_distinct[4], size = 3) + 
+  geom_line(size = 1) +
+  geom_point(size = 3) + 
   scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) + 
   scale_x_continuous(breaks = scales::breaks_width(2, 0)) +
-  theme_line(text_size) +
   xlab(NULL) +
   ylab("% Studies") +
   theme(panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
-        axis.line = element_line(color = nih_distinct[4]),
-        strip.background = element_blank(),
-        axis.ticks = element_line(color = nih_distinct[4]))
+        strip.background = element_blank())
 
 
 # Create a table plot
@@ -170,20 +131,16 @@ d_tl_study = d_tl_study %>% mutate(n_injuries_outlierfix = ifelse(n_injuries_ana
 
 
 emf("n_injury_distribution.emf", width = 8, height = 4)
-text_size = 16
 ggplot(d_tl_study, aes(x = n_injuries_outlierfix)) + 
-  geom_histogram(binwidth = 30, fill = nih_distinct[4]) +
-  geom_vline(xintercept = 200, color = nih_distinct[1], size = 1.5, alpha = 0.5) + 
+  geom_histogram(binwidth = 30) +
+  geom_vline(xintercept = 200, size = 1.5, alpha = 0.5) + 
   scale_x_continuous(breaks = breaks_width(100, 0)) + 
   scale_y_continuous(breaks = breaks_width(4, 0), expand = expand_bar) + 
-  theme_line() +
   xlab("Number of injuries") +
   ylab("Number of studies") +
   theme(panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
-        axis.line = element_line(color = nih_distinct[4]),
         strip.background = element_blank(),
-        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
-        axis.ticks = element_line(color = nih_distinct[4]))
+        strip.text.x = element_text(family="Trebuchet MS", colour="black", face = "bold"))
 dev.off()
