@@ -15,7 +15,7 @@ library(mice) # multiple imputation package
 source("performance-measure-functions.R", encoding = "UTF-8")
 
 #--------------------------------Read data and calculate performance measures on model fits
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+base_folder = "my\\data\\folder\\"
 
 # vector of chosen missing proportions
 # if we ever want to change it or add more proportions, easily done here.
@@ -229,7 +229,6 @@ d_fig_mcar_all = d_fig_all %>% filter(missing_type == "mcar")
 d_fig_mar_all = d_fig_all %>% filter(missing_type == "mar") %>% mutate(missing_amount = case_when(missing_amount == "light" ~ "Light",
                                                                                                   missing_amount == "medium" ~ "Medium",
                                                                                                   missing_amount == "strong" ~ "Strong"))
-library(lmisc) # ggplot2 themes
 library(ggpubr) # for multiple plots in one thanks to ggarrange()
 library(devEMF) # for saving emf files
 library(egg) # for denoting figs with A, B, C etc.
@@ -238,26 +237,22 @@ text_size = 16
 plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
   facet_wrap(c("var_gps", "var_extra"), ncol = 3, scales= "free") + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
-  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
-  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
+  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3) +
+  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3) +
   geom_line(size = 1) +
   geom_point(size = 2) +
-  theme_line(text_size, legend = TRUE) +
-  scale_color_manual(values = nih_distinct) +
-  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0)) +
+  scale_y_continuous(breaks = scales::breaks_width(0.1, 0)) +
   ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
-  scale_x_continuous(labels = axis_percent, breaks = scales::breaks_width(0.2, 0))  +
+  scale_x_continuous(breaks = scales::breaks_width(0.2, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        legend.text=element_text(size=text_size),
         legend.position = "bottom",
         panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
-        axis.line = element_line(color = nih_distinct[4]),
         strip.background = element_blank(),
-        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
-        axis.ticks = element_line(color = nih_distinct[4])) +
+        strip.text.x = element_text(size = text_size+2, colour="black", face = "bold")) +
   coord_cartesian(ylim = c(-0.3, 0.3))
 
 emf("td_pb_mcar.emf", width = 14, height = 10)
@@ -271,25 +266,21 @@ dev.off()
 plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = method, color = method)) +
   facet_wrap(c("var_gps", "var_extra"), ncol = 3, scales = "free") + 
   geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
-  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
-  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3, colour = nih_contrast[2]) +
+  geom_hline(yintercept = 0.05, size = 1, alpha = 0.3) +
+  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3) +
   geom_line(size = 1) +
   geom_point(size = 2) +
-  theme_line(text_size, legend = TRUE) +
-  scale_color_manual(values = nih_distinct) +
   ylab("% Bias") + 
   xlab("Missing amount under MAR") + 
-  scale_y_continuous(labels = axis_percent, breaks = scales::breaks_width(0.1, 0))  +
+  scale_y_continuous(breaks = scales::breaks_width(0.1, 0))  +
   theme(legend.title=element_blank(),
-        legend.text=element_text(size=text_size, family = "Trebuchet MS"),
+        legend.text=element_text(size=text_size),
         legend.position = "bottom",
         panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
-        axis.line = element_line(color = nih_distinct[4]),
         strip.background = element_blank(),
-        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
-        axis.ticks = element_line(color = nih_distinct[4])) +
+        strip.text.x = element_text(size = text_size+2, colour="black", face = "bold")) +
   coord_cartesian(ylim = c(-0.3, 0.3))
 
 emf("td_pb_mar.emf", width = 14, height = 10)
@@ -332,18 +323,15 @@ d_impdata = bind_rows(d_cc, d_imps)
 text_size = 18  
 plot_mcar = ggplot(d_impdata, aes(x=gps_td, group = dataset_n)) +
   facet_wrap(~method, scales = "free") + 
-  geom_density(data = d_realdata, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
-  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
+  geom_density(data = d_realdata, aes(x=target, group = dataset_n), position = "identity", size = 0.8) +
+  geom_density(position = "identity", size = 0.6) +
   xlab("Total Distance (M)") +
   ylab("Density") + 
-  theme_line(text_size) +
   theme(panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
-        axis.line = element_line(color = nih_distinct[4]),
         strip.background = element_blank(),
-        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
-        axis.ticks = element_line(color = nih_distinct[4])) 
+        strip.text.x = element_text(size = text_size+2, colour="black", face = "bold")) 
 
 # Missing at Random
 d_realdata_mar = d_imp_nogps_pos_red %>% filter(missing_type == "mar", missing_amount == "strong")
@@ -356,18 +344,15 @@ d_impdata_mar = bind_rows(d_cc_mar, d_imps_mar)
 
 plot_mar = ggplot(d_impdata_mar, aes(x=gps_td, group = dataset_n)) +
   facet_wrap(~method, scales = "free") + 
-  geom_density(data = d_realdata_mar, aes(x=target, group = dataset_n), position = "identity", colour = nih_distinct[1], size = 0.8) +
-  geom_density(position = "identity", colour = nih_distinct[4], size = 0.6) +
+  geom_density(data = d_realdata_mar, aes(x=target, group = dataset_n), position = "identity", size = 0.8) +
+  geom_density(position = "identity", size = 0.6) +
   xlab("Total Distance (M)") +
   ylab("Density") + 
-  theme_line(text_size) +
   theme(panel.border = element_blank(), 
         panel.background = element_blank(),
         panel.grid = element_blank(),
-        axis.line = element_line(color = nih_distinct[4]),
         strip.background = element_blank(),
-        strip.text.x = element_text(size = text_size+2, family="Trebuchet MS", colour="black", face = "bold"),
-        axis.ticks = element_line(color = nih_distinct[4])) 
+        strip.text.x = element_text(size = text_size+2, colour="black", face = "bold")) 
 
 emf("td_imp_vs_real_mar.emf", width = 12, height = 8)
 plot_mar
