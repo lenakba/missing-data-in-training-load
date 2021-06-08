@@ -16,7 +16,7 @@ source("performance-measure-functions.R", encoding = "UTF-8")
 
 #--------------------------------Read data and calculate performance measures
 
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+base_folder = "my\\data\\folder\\"
 folder_fits = paste0(base_folder, "substudy_derived_var_fits\\")
 folder_imps = paste0(base_folder, "substudy_derived_var_imps\\")
 
