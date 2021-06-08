@@ -1,4 +1,4 @@
-﻿p_id;training_date;day_of_week;mc_day;week_nr;rpe;duration;missing_player;missing_player_text;missing_rpe;missing_rpe_text;missing_duration;missing_duration_text
+p_id;training_date;day_of_week;mc_day;week_nr;rpe;duration;missing_player;missing_player_text;missing_rpe;missing_rpe_text;missing_duration;missing_duration_text
 106;2019-01-14;Monday;Non-match week;2;3;45;0;Player with sRPE measures;0;Not Missing;0;Not Missing
 106;2019-01-15;Tuesday;Non-match week;2;7;40;0;Player with sRPE measures;0;Not Missing;0;Not Missing
 106;2019-01-16;Wednesday;Non-match week;2;6;60;0;Player with sRPE measures;0;Not Missing;0;Not Missing
