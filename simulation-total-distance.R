@@ -9,7 +9,7 @@ options(scipen = 17,
         stringsAsFactors = FALSE)
 
 # reading data
-folder_data = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
+folder_data = paste0("my\\data\\folder\\")
 
 # note that the Total Distance data is per day
 d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td_anon.csv"), delim = ";")
@@ -298,7 +298,7 @@ missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
 
 # base folder where all the folders for simulations are to be saved
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+base_folder = "my\\future\\data\\folder\\"
 
 #------------------------First variant with no extra variables
 folder_fits_noextra = paste0(base_folder, "td_fits\\")
@@ -419,7 +419,7 @@ for(i in 1:n_sim){
 }
 options(warn=0)
 
-#----------------------Sub analysis - does result change under single imputation of regression and pmm?-----------------------------------------
+#----------------------Sub analysis - does result change under single imputation vs. multiple imputation of pmm?-----------------------------------------
 
 # Create missing completely at random
 add_mcar_td = function(d, missing_prop){
