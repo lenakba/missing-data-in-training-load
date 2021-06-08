@@ -9,7 +9,7 @@ options(scipen = 17,
         stringsAsFactors = FALSE)
 
 # reading data
-folder_data = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
+folder_data = paste0("my\\data\\folder\\")
 
 # note that the RPE data is per session (which there can be multiple of per day)
 d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";")
@@ -278,7 +278,7 @@ target_col = d_srpe$srpe
 # performing simulations with n runs
 # the warnings are caused by collinearity between the variables
 # which is expected
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+base_folder = "my\\future\\data\\folder\\"
 folder_fits = paste0(base_folder, "srpe_fits\\")
 folder_imps = paste0(base_folder, "srpe_imps\\")
 
