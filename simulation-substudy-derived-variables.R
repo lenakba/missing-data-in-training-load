@@ -2,12 +2,8 @@
 # derived variables
 # here, we try to find out the best method for sRPE
 
-# may be relevant: https://journals.sagepub.com/doi/full/10.1177/0962280214521348
-# definitely relevant: https://stefvanbuuren.name/fimd/sec-knowledge.html 
-
 # loading packages
 library(tidyverse) # for datawrangling
-library(DBI) # for database extraction with SQL
 library(chron) # for calculating duration
 library(mice) # multiple imputation package
 library(readxl) # reading excel files
@@ -18,7 +14,7 @@ options(scipen = 17,
         stringsAsFactors = FALSE)
 
 # reading data
-folder_data = paste0("O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\")
+folder_data = paste0("my\\data\\folder\\")
 
 # note that the RPE data is per session (which there can be multiple of per day)
 d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";")
@@ -52,8 +48,6 @@ inj_probability = function(srpe){
   y
 }
 
-#-------------------------------1 permutation
-
 # we fetch our MCAR function from the main simulation
 add_mcar = function(d, missing_prop){
   n_values = nrow(d)
@@ -63,43 +57,6 @@ add_mcar = function(d, missing_prop){
                    duration = ifelse(rowname %in% random_spots_min, NA, duration)) %>% dplyr::select(-rowname)
   d
 }
-
-# d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
-# 
-# # Method 1 Impute, then transform
-# imp1 = mice(d_missing, print = FALSE, seed = 1234)
-# long1 = mice::complete(imp1, "long", include = TRUE)
-# long1$srpe = with(long1, rpe*duration)
-# imp.itt = as.mids(long1)
-# 
-# # Method 2 Transform, then impute
-# d_missing_srpe = d_missing %>% mutate(srpe = rpe * duration)
-# # We may prevent automatic removal by setting the relevant entries 
-# # in the predictorMatrix to zero.
-# # This is a little faster (5-10%) and cleans out the warning.
-# pred = make.predictorMatrix(d_missing_srpe)
-# pred[c("rpe", "srpe"), c("rpe", "srpe")] = 0
-# pred[c("duration", "srpe"), c("duration", "srpe")] = 0
-# meth_pmm = make.method(d_missing_srpe)
-# imp.jav = mice(d_missing_srpe, meth = meth_pmm, pred = pred, seed = 1234, print = TRUE)
-# 
-# # Method 3 Passive Imputation
-# meth = make.method(d_missing_srpe)
-# meth["srpe"] = "~I(rpe*duration)" # we add the calculation for sRPE among the methods
-# pred2 = make.predictorMatrix(d_missing_srpe)
-# pred2[c("rpe", "duration"), "srpe"] = 0
-# imp.pas = mice(d_missing_srpe, meth = meth, pred = pred2, print = FALSE, seed = 1234)
-# 
-# # Method 4 Impute derived without informants
-# d_missing_srpe_only = d_missing_srpe %>% dplyr::select(-rpe, -duration)
-# imp.id = mice(d_missing_srpe_only, seed = 1234, print = FALSE) 
-# 
-# # fit our models
-# fit_target = glm(injury ~ srpe + age, family = "binomial", data = d_sim_inj)
-# fit1 = with(imp.itt, glm(injury ~ srpe + age, family = binomial))
-# fit2 = with(imp.jav, glm(injury ~ srpe + age, family = binomial))
-# fit3 = with(imp.pas, glm(injury ~ srpe + age, family = binomial))
-# fit4 = with(imp.id, glm(injury ~ srpe + age, family = binomial))
 
 # function for obtaining parameters from any model fit
 # specify method for a column with the model-type
@@ -117,13 +74,6 @@ get_params = function(fit, method, imp = TRUE){
   d_params = d_params %>% mutate(method = method) 
   d_params
 }
-
-# tab_target = get_params(fit_target, "No imputation", imp = FALSE)  
-# tab1 = get_params(fit1, "Impute then transform")  
-# tab2 = get_params(fit2, "Transform then impute")  
-# tab3 = get_params(fit3, "Passive Imputation")  
-# tab4 = get_params(fit4, "Impute transformed alone")  
-# d_fits = bind_rows(tab_target, tab1, tab2, tab3, tab4)
 
 # create function based on all this
 sim_impfit_derivedvar = function(d_missing, run = 1){
@@ -174,9 +124,6 @@ sim_impfit_derivedvar = function(d_missing, run = 1){
     d_fits = d_fits %>% mutate(rep = run)
     d_fits
 }
-
-# d_missing = add_mcar(d_exdata, 0.25) %>% dplyr::select(-inj_prop)
-# test1 = sim_impfit_derivedvar(d_missing)
 
 # function for adding the target srpe values
 # to an imputed dataset
@@ -243,13 +190,10 @@ sim_imp_derivedvar = function(d_missing, target, run = 1){
   d_imp 
 }
 
-# target_srpe = d_sim_inj$srpe
-# test = sim_imp_derivedvar(d_missing, target_srpe)
-
 # performing simulations with n runs
 # the warnings are caused by collinearity between the variables
 # which is expected
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+base_folder = "my\\future\\data\\folder\\"
 folder_fits = paste0(base_folder, "substudy_derived_var_fits\\")
 folder_imps = paste0(base_folder, "substudy_derived_var_imps\\")
 
@@ -319,35 +263,3 @@ meth["whr"] = "~I(100 * wgt / hgt)"
 pred = make.predictorMatrix(data)
 pred[c("wgt", "hgt"), "whr"] = 0
 imp.pas = mice(data, meth = meth, pred = pred, print = FALSE, seed = 32093)
-
-# Bartlett et al. (2015) proposed a novel rejection sampling method 
-# that creates imputations that are congenial in the sense of Meng (1994) 
-# with the substantive (complete-data) model.
-# The method has been implemented in the smcfcs package. 
-# The imputation method requires a specification of the complete-data model, 
-# as arguments smtype and smformula. 
-# An example of how to generate imputations, fit models, and pool the results is:
-# library(smcfcs)
-# data = pop
-# data[sample(nrow(data), size = 100), "wgt"] = NA
-# data[sample(nrow(data), size = 100), "hgt"] = NA
-# data$whr = 100 * data$wgt / data$hgt
-# meth = c("", "norm", "norm", "", "", "norm")
-# imps = smcfcs(originaldata = data, meth = meth, smtype = "lm",
-#                smformula = "hc ~ age + hgt + wgt + whr")
-# fit = lapply(imps$impDatasets, lm,
-#               formula = hc ~ age + hgt + wgt + whr)
-# summary(pool(fit))
-
-# As the population data, take the 681 complete records of variables age, hgt, wgt, hc and reg, 
-# and create a model for predicting height circumference from hc from more easily measured variables, 
-# including whr.
-pop <- na.omit(boys[, c("age", "hgt", "wgt", "hc", "reg")])
-pop$whr <- with(pop, 100 * wgt / hgt)
-broom::tidy(lm(hc ~ age + hgt + wgt + whr, data = pop))
-
-# This is a simple linear model, 
-# but the proportion of explained variance is very high, about 0.9. 
-# The ratio variable whr explains about 5% of the variance on top of the other variables. 
-# Let us randomly delete 25% of hgt and 25% of wgt, apply each of the three methods 200 times using 
-# m = 5, and evaluate the parameter for whr.
