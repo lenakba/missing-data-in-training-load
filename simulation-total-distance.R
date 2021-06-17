@@ -8,11 +8,8 @@ library(mice) # for imputation methods
 options(scipen = 17, 
         stringsAsFactors = FALSE)
 
-# reading data
-folder_data = paste0("my\\data\\folder\\")
-
 # note that the Total Distance data is per day
-d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td_anon.csv"), delim = ";")
+d_td_full = read_delim("norwegian_premier_league_football_td_anon.csv", delim = ",")
 d_td_full = d_td_full %>% rename(gps_td = total_distance_daily, gps_v4 = v4_distance_daily, gps_v5 = v5_distance_daily, gps_pl = player_load_daily)
 
 # remove missing
