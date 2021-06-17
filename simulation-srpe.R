@@ -8,11 +8,8 @@ library(mice) # for imputation methods
 options(scipen = 17, 
         stringsAsFactors = FALSE)
 
-# reading data
-folder_data = paste0("my\\data\\folder\\")
-
 # note that the RPE data is per session (which there can be multiple of per day)
-d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";")
+d_rpe_full = read_delim("norwegian_premier_league_football_rpe_anon.csv", delim = ";")
 
 # remove missing
 # select vars we need in the simulation, key variables we think are correlated with the level of sRPE
