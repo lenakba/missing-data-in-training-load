@@ -9,8 +9,7 @@ library(scales) # manipulating numeric scales
 #-----------------------------------------------------Data preparation
 
 # reading data
-folder_data = paste0("my\\data\\location")
-d_tl_study_full = read_excel(paste0(folder_data, "studies_missing_reporting.xlsx"))
+d_tl_study_full = read_excel("studies_missing_reporting.xlsx")
 
 # selecting the variables needed for these analyses
 key_vars = c("study_id", "author_first", "year", "title")
