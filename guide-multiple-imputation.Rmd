@@ -371,7 +371,7 @@ multiple imputation can safely be performed.
 
 However, missing training load observations may be under the assumption of 
 Missing Not at Random (MNAR). Such missing data patterns arise when the probability
-og missing is either 1) dependent on unobserved variables or 2) dependent on the 
+of missing is either 1) dependent on unobserved variables or 2) dependent on 
 the data that is missing. For instance, if athletes neglect to report RPE on
 intense training days, the data are MNAR, as the probability of missing is dependent
 on the RPE values themselves - the higher RPE, the higher chance of missing. 
