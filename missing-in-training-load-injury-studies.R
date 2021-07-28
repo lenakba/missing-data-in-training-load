@@ -29,6 +29,7 @@ d_tl_study %>% summarise(mean_age = mean(population_mean_age, na.rm = TRUE), sd_
 
 # mean injuries
 d_tl_study %>% filter(!is.na(n_injuries_analyses)) %>% summarise(mean = mean(n_injuries_analyses), 
+                                                                 median = median(m_injuries_analyses),
                                                                  sd = sd(n_injuries_analyses),
                                                                  sum_target = sum(n_injuries_analyses >= 200),
                                                                  denom = n(),
@@ -132,7 +133,6 @@ d_tl_study = d_tl_study %>% mutate(n_injuries_outlierfix = ifelse(n_injuries_ana
 emf("n_injury_distribution.emf", width = 8, height = 4)
 ggplot(d_tl_study, aes(x = n_injuries_outlierfix)) + 
   geom_histogram(binwidth = 30) +
-  geom_vline(xintercept = 200, size = 1.5, alpha = 0.5) + 
   scale_x_continuous(breaks = breaks_width(100, 0)) + 
   scale_y_continuous(breaks = breaks_width(4, 0), expand = expand_bar) + 
   xlab("Number of injuries") +
