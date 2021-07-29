@@ -9,13 +9,11 @@ library(visdat) # for figures showing missing data pattern
 options(scipen = 17, 
         stringsAsFactors = FALSE)
 
-# reading data
-folder_data = paste0("my\\data\\folder\\")
-
+# assume that the dataset is in the same folder location as the R script
 # note that the RPE data is per session (which there can be multiple of per day)
 # and that the Total Distance data is per day
-d_rpe_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_rpe_anon.csv"), delim = ";")
-d_td_full = read_delim(paste0(folder_data, "norwegian_premier_league_football_td_anon.csv"), delim = ";")
+d_rpe_full = read_delim("norwegian_premier_league_football_rpe_anon.csv", delim = ";")
+d_td_full = read_delim("norwegian_premier_league_football_td_anon.csv", delim = ";")
 d_td_full = d_td_full %>% rename(gps_td = total_distance_daily, gps_v4 = v4_distance_daily, gps_v5 = v5_distance_daily, gps_pl = player_load_daily)
 
 # select vars we need in the simulation, key variables we think are correlated with the level of sRPE
