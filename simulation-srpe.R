@@ -119,7 +119,11 @@ get_params = function(fit, method, pool = FALSE){
 # The final, helper function that performs all the imputations at once, given a dataset with missing
 # then, it fits a logistic regression model on the data
 # and outputs the needed model parameters for the validation of the imputation models
-sim_impfit = function(d_missing, target_param, rep = 1){
+sim_impfit = function(d_missing, target_param, type = "mcar", rep = 1){
+  
+  if(type == "mar"){
+    d_missing = d_missing %>% dplyr::select(-sex, -age, -freeday)
+  }
   
   #-----------------impute using all the different methods
   # Mean imputation by the mean per player
@@ -191,8 +195,12 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 # a single dataset, and pooling might have to be manually implemented according to Ruben's rules.
 # The simulation is, experienced from our derived-variable substudy, not that computationally heavy,
 # and so I think this solution is fine, although it breaks the Do-not-Repeat-Yourself (DRY) Principle.
-sim_imp = function(d_missing, target, run = 1){
+sim_imp = function(d_missing, target, type = "mcar", run = 1){
   
+  if(type == "mar"){
+    d_missing = d_missing %>% dplyr::select(-sex, -age, -freeday)
+  }
+ 
   # find which rows have missing and need imputation
   imp_rows_pos = which(is.na(d_missing$rpe) | is.na(d_missing$duration))
   
@@ -264,8 +272,7 @@ srpe_id_base = srpe_p_id %>% mutate(age = sample(18:30, length(srpe_p_id$p_id), 
                                     sex = sample(0:1, length(srpe_p_id$p_id), replace = TRUE))
 d_exdata_mar = d_exdata_srpe %>% 
   left_join(srpe_id_base, by = "p_id") %>% 
-  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0)) %>% 
-  select(-sex, -age, -freeday)
+  mutate(freeday = ifelse(mc_day == "M+1" | mc_day == "M+2", 1, 0))
 
 # fetch our original sRPE column, which is our original, true value, and we aim to target it
 target_col = d_srpe$srpe
@@ -294,9 +301,9 @@ sim_impute = function(missing, missing_amount, rep){
   
   } else if(missing == "mar"){
   d_mar = add_mar_rpe(d_exdata_mar, missing_amount)
-  d_sim_fits_mar = sim_impfit(d_mar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  d_sim_fits_mar = sim_impfit(d_mar, target_param, type = "mar", rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
   saveRDS(d_sim_fits_mar, file=paste0(folder_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds")) 
-  d_sim_imps_mar = sim_imp(d_mar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  d_sim_imps_mar = sim_imp(d_mar, target_col, type = "mar", rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
   saveRDS(d_sim_imps_mar, file=paste0(folder_imps, rep,"_d_srpe_imps_", missing, "_", missing_amount,".rds"))
   }
 }
