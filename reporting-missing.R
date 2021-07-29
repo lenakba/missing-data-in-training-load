@@ -2,7 +2,7 @@
 # at different levels and variants
 library(tidyverse) # for datawrangling
 library(lmisc) # for ggplot2 themes
-library(devEMF) # for emf figures
+library(visdat) # for figures showing missing data pattern
 
 # so we don't have to deal with scientific notations
 # and strings aren't automaticcaly read as factors
@@ -44,7 +44,26 @@ d_td_full %>% count(missing_srpe, missing_srpe_text)
 # how many missing daily total distance?
 d_td_full %>% filter(!is.na(gps_day), missing_player == 0) %>% summarise(missing_td = sum(!is.na(gps_td)))
 
-na.omit(d_rpe_full)
+#-------------------------------------------------------- Figure on the pattern of missing data
+# first remove days when GPS devices were not worn
+d_td_gpsdays = d_td_full %>% filter(!is.na(gps_day))
+
+# select relevant variables
+d_td_gpsdays = d_td_gpsdays %>% select(p_id, training_date, week_nr, srpe, starts_with("gps"), mc_day, -gps_day)
+
+# arrange by week number to showcase time effect
+d_td_gpsdays = d_td_gpsdays %>% arrange(week_nr)
+
+missing_pattern_plot = vis_dat(d_td_gpsdays) +
+  scale_fill_manual(labels = c("Nominal", "Date", "Continuous", "Missing observation")) + 
+  theme(text = element_text(size = 14, family="Trebuchet MS"),
+        legend.key = element_rect(fill = "transparent", colour = "black")) +
+  guides(fill=guide_legend(title="Variable type"))
+
+# to save the figure
+png("missing_pattern.png", width = 7.5, height = 6, units = "in", res = 600)
+missing_pattern_plot
+dev.off()
 
 #--------------------------------------------------------Figures showing distribution of load values
 
