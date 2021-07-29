@@ -250,11 +250,14 @@ sim_imp = function(d_missing, target, type = "mcar", run = 1){
 }
 
 ###############Data Preparation
-
+set.seed(1234)
 # create fake injuries
 d_srpe = d_srpe %>% 
   mutate(inj_prop = inj_probability_srpe(srpe), 
          injury = rbinom(length(inj_prop), 1, prob = inj_prop))
+
+# calculate number of injuries
+d_srpe %>% summarise(sum(injury))
 
 # logistic regression for comparison
 fit.target = glm(injury ~ srpe, family = "binomial", data = d_srpe)
