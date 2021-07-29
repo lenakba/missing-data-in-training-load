@@ -330,14 +330,12 @@ imputation models where needed. This includes variables
 that are identified as constant or which have collinearity
 issues. 
 
-PMM is robust to minor violations of the non-linearity assumption
-between predictors and the response (training load) in the imputation model
-(Morris, White, Royston 2014, https://doi.org/10.1186/1471-2288-14-75). However, 
-if strong non-linear relationships between predictors and training load 
-is present, this should be handled 
-by specifying Restricted Cubic Splines or Fractional Polynomials in the imputation model. 
-Another option is to forgo PMM for other methods that accommodate non-linearity, 
-such as Machine Learning by Random Forest.
+The default imputation model in the `MICE` package is a linear regression model. 
+This may be inadequate in the presence of strong non-linear relationships between 
+the predictors and the response (training load) in the imputation model (Van Buuren 2018). 
+This can be handled by specifying Restricted Cubic Splines or Fractional Polynomials in 
+the imputation model. Another option is to forgo PMM for other 
+methods that accommodate non-linearity, such as Machine Learning by Random Forest.
 
 Note that if the missing data is considered to be under the assumption
 of missing at random, meaning the probability of missing is dependent 
