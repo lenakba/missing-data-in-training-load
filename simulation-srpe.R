@@ -316,6 +316,9 @@ sim_impute = function(missing, missing_amount, rep){
 missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 missing_prop_mar = c("light", "medium", "strong")
 
+# for-loop for runing the simulation
+# using just 1 core. See optional 
+# for-loop using multiple cores below
 options(warn=-1)
 set.seed = 1234
 n_sim = 1900
@@ -326,6 +329,20 @@ for(i in 1:n_sim){
   missing_prop_mar %>% walk(~sim_impute("mar", ., rep = i))
 }
 options(warn=0)
+
+#---------------------Optional: using multiple cores
+library(foreach) # for using multiple cores
+library(doParallel) # for using the cores in parallel
+numCores = 4 # or however many cores your computer has
+n_sim = 1900
+set.seed = 1234
+registerDoParallel(numCores)
+foreach (i = 1:n_sim) %dopar% {
+  library(tidyverse)
+  library(mice)
+  purrr::walk(missing_prop_mcar, ~sim_impute("mcar", ., rep = i))
+  purrr::walk(missing_prop_mar, ~sim_impute("mar", ., rep = i))
+}
 
 #------------------------------------------------to check if having position changes the results
 folder_fits = paste0(base_folder, "srpe_fits_pos\\")
