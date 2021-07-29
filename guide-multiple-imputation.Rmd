@@ -378,11 +378,15 @@ multiple imputation can safely be performed.
 
 However, missing training load observations may be under the assumption of 
 Missing Not at Random (MNAR). Such missing data patterns arise when the probability
-of missing is either 1) dependent on unobserved variables or 2) dependent on 
+of missing is either 1) dependent on unobserved variables or 2) dependent on
 the data that is missing. For instance, if athletes neglect to report RPE on
 intense training days, the data are MNAR, as the probability of missing is dependent
 on the RPE values themselves - the higher RPE, the higher chance of missing. 
-This causes selection bias. No method for dealing with missing data can solve MNAR.
+This may cause selection bias. Some cases of MNAR may mimic MAR enough
+to justify performing multiple imputation regardless 
+(Schouten and Vink 2018, https://doi.org/10.1177/0049124118799376), but we advise caution 
+against performing analyses on data suspected to be MNAR. 
+
 
 Predicted mean matching is a method that selects values at random from
 a handful of so-called "donor" rows. If the sample size is too small, 
