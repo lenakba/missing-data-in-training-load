@@ -222,11 +222,14 @@ sim_imp = function(d_missing, target, run = 1){
 }
 
 ###############Data Preparation
-
+set.seed(1234)
 # create fake injuries
 d_td = d_td %>% 
   mutate(inj_prop = inj_probability_td(gps_td), 
          injury = rbinom(length(inj_prop), 1, prob = inj_prop))
+
+# calculate number of injuries
+d_td %>% summarise(sum(injury))
 
 # logistic regression for comparison
 fit.target = glm(injury ~ gps_td, family = "binomial", data = d_td)
