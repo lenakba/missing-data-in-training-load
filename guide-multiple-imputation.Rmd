@@ -335,7 +335,7 @@ This may be inadequate in the presence of strong non-linear relationships
 between the predictors and the response (training load) 
 in the imputation model (Van Buuren 2018). 
 This can be handled by specifying Restricted Cubic Splines or Fractional Polynomials 
-in the imputation model. Another option is to forgo PMM for more advanced methods,
+in the imputation model. Another option is to skip PMM for more advanced methods,
 such as Machine Learning using a Random Forest algorithm 
 (Benson 2021 implements Multiple Impuitation with Machine Learning https://doi.org/10.52082/jssm.2021.188).
 
@@ -388,7 +388,6 @@ This may cause selection bias. Some cases of MNAR may mimic MAR enough
 to justify performing multiple imputation regardless 
 (Schouten and Vink 2018, https://doi.org/10.1177/0049124118799376), but we advise caution 
 against performing analyses on data suspected to be MNAR. 
-
 
 Predicted mean matching is a method that selects values at random from
 a handful of so-called "donor" rows. If the sample size is too small, 
