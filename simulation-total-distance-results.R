@@ -127,7 +127,7 @@ calc_perf_params = function(d_td, var_extra, var_gps){
   perf_estimates_targetcoef = d_td %>% 
     group_by(method, missing_type, missing_amount) %>% 
     summarise(rb = raw_bias(estimate, target_est),
-              pb = percent_bias(estimate, target_est),
+              pb = abs_percent_bias(estimate, target_est),
               rmse = rmse(estimate, target_est),
               coverage = coverage(CI_low, CI_high, target_est, n()),
               average_width = average_width(CI_low, CI_high),
@@ -236,12 +236,10 @@ text_size = 16
 
 plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb, group = method, color = method)) +
   facet_wrap(c("var_gps", "var_extra"), ncol = 3, scales= "free") + 
-  geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3) +
-  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3) +
   geom_line(size = 1) +
   geom_point(size = 2) +
-  scale_y_continuous(breaks = scales::breaks_width(0.1, 0)) +
+  scale_y_continuous(breaks = scales::breaks_width(0.05, 0)) +
   ylab("% Bias") + 
   xlab("% Missing under MCAR") + 
   scale_x_continuous(breaks = scales::breaks_width(0.2, 0))  +
@@ -253,7 +251,7 @@ plot_mcar_pb = ggplot(d_fig_mcar_all, aes(x = as.numeric(missing_amount), y = pb
         panel.grid = element_blank(),
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, colour="black", face = "bold")) +
-  coord_cartesian(ylim = c(-0.3, 0.3))
+  coord_cartesian(ylim = c(0, 0.3))
 
 emf("td_pb_mcar.emf", width = 14, height = 10)
 tag_facet(plot_mcar_pb, tag_pool = LETTERS)
@@ -265,14 +263,12 @@ dev.off()
 
 plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = method, color = method)) +
   facet_wrap(c("var_gps", "var_extra"), ncol = 3, scales = "free") + 
-  geom_hline(yintercept = 0, size = 1, alpha = 0.15) +
   geom_hline(yintercept = 0.05, size = 1, alpha = 0.3) +
-  geom_hline(yintercept = -0.05, size = 1, alpha = 0.3) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   ylab("% Bias") + 
   xlab("Missing amount under MAR") + 
-  scale_y_continuous(breaks = scales::breaks_width(0.1, 0))  +
+  scale_y_continuous(breaks = scales::breaks_width(0.05, 0))  +
   theme(legend.title=element_blank(),
         legend.text=element_text(size=text_size),
         legend.position = "bottom",
@@ -281,7 +277,7 @@ plot_mar_pb = ggplot(d_fig_mar_all, aes(x = missing_amount, y = pb, group = meth
         panel.grid = element_blank(),
         strip.background = element_blank(),
         strip.text.x = element_text(size = text_size+2, colour="black", face = "bold")) +
-  coord_cartesian(ylim = c(-0.3, 0.3))
+  coord_cartesian(ylim = c(0, 0.3))
 
 emf("td_pb_mar.emf", width = 14, height = 10)
 tag_facet(plot_mar_pb, tag_pool = LETTERS)
