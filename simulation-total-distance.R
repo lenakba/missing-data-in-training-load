@@ -110,8 +110,15 @@ get_params = function(fit, method, pool = FALSE){
 # The final, helper function that performs all the imputations at once, given a dataset with missing
 # then, it fits a logistic regression model on the data
 # and outputs the needed model parameters for the validation of the imputation models
-sim_impfit = function(d_missing, target_param, rep = 1){
+sim_impfit = function(d_missing, level = "NULL", target_param, rep = 1){
   
+  mar_vars = c("sex", "age", "freeday")
+  if(level == "light" | level == "medium"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars))
+  } else if(level == "strong"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars), -match) 
+  }     
+        
   #-----------------impute using all the different methods
   # Mean imputation by the mean per player
   d.mean.p_id = impute_mean(d_missing, p_id)
@@ -177,8 +184,15 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 # a single dataset, and pooling might have to be manually implemented according to Ruben's rules.
 # The simulation is, experienced from our derived-variable substudy, not that computationally heavy,
 # and so I think this solution is fine, although it breaks the Do-not-Repeat-Yourself (DRY) Principle.
-sim_imp = function(d_missing, target, run = 1){
+sim_imp = function(d_missing, level = "null", target, run = 1){
   
+  mar_vars = c("sex", "age", "freeday")
+  if(level == "light" | level == "medium"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars))
+  } else if(level == "strong"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars), -match) 
+  }     
+        
   # find which rows have missing and need imputation
   imp_rows_pos = which(is.na(d_missing$gps_td))
   
@@ -278,17 +292,18 @@ sim_impute = function(missing, missing_amount, d, folder_fits, folder_imps, rep)
   
   if(missing == "mcar"){
     d_mcar = add_mcar_td(d, missing_amount)
-    d_sim_fits_mcar = sim_impfit(d_mcar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+    d_sim_fits_mcar = sim_impfit(d_mcar, level = "null", target = target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
     saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds"))  
-    d_sim_imps_mcar = sim_imp(d_mcar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+    d_sim_imps_mcar = sim_imp(d_mcar, level = missing_amount, target = target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
     saveRDS(d_sim_imps_mcar, file=paste0(folder_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
     
   } else if(missing == "mar"){
     d_mar = add_mar_td(d, missing_amount)
-    d_sim_fits_mar = sim_impfit(d_mar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+    d_sim_fits_mar = sim_impfit(d_mar, level = missing_amount, target = target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
     saveRDS(d_sim_fits_mar, file=paste0(folder_fits, rep,"_d_td_fits_", missing, "_", missing_amount,".rds")) 
-    d_sim_imps_mar = sim_imp(d_mar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+    d_sim_imps_mar = sim_imp(d_mar, level = missing_amount, target = target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
     saveRDS(d_sim_imps_mar, file=paste0(folder_imps, rep,"_d_td_imps_", missing, "_", missing_amount,".rds"))
+  }
   }
 }
 
@@ -317,6 +332,25 @@ for(i in 1:n_sim){
   missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_noextra, folder_fits_noextra, folder_imps_noextra, rep = i))
 }
 options(warn=0)
+
+#----- Alternative: Using mulitple cores:
+# optional using multiple cores
+#library(foreach) # for using multiple cores
+#library(doParallel) # for using multiple cores in parallel
+#numCores = 4
+#n_sim = 1900
+
+#options(warn=-1)
+#set.seed(1234)
+#registerDoParallel(numCores)
+#foreach (i = 1:n_sim) %dopar% {
+#  library(tidyverse)
+#  library(mice)
+#  library(lme4)
+#  missing_prop_mcar %>% walk(~sim_impute("mcar", ., d_exdata_td_noextra, folder_fits_noextra, folder_imps_noextra, rep = i))
+#  missing_prop_mar %>% walk(~sim_impute("mar", ., d_exdata_mar_noextra, folder_fits_noextra, folder_imps_noextra, rep = i))
+#}
+#options(warn=0)
 
 #-------------- position available
 folder_fits_pos = paste0(base_folder, "td_fits_pos\\")
@@ -490,19 +524,14 @@ sim_impute = function(missing_amount, d, folder_fits, rep){
 
 }
 
-# vector of chosen missing proportions
-# if we ever want to change it or add more proportions, easily done here.
-missing_prop_mcar = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
-
-# base folder where all the folders for simulations are to be saved
-base_folder = "O:\\Prosjekter\\Bache-Mathiesen-002-missing-data\\Data\\simulations\\"
+# folder location for SI vs. MI 
 folder_fits_singleimp = paste0(base_folder, "td_fits_singleimp\\")
 
 # performing simulations with n runs
 # the warnings are caused by collinearity between the variables
 # which is expected
 options(warn=-1)
-set.seed = 1234
+set.seed(1234)
 n_sim = 1900
 for(i in 1:n_sim){
   missing_prop_mcar %>% walk(~sim_impute(., d_exdata_td_noextra, folder_fits_singleimp, rep = i))
