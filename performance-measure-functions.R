@@ -8,11 +8,15 @@
 
 # amount of bias toward a target estimate
 raw_bias = function(estimate, target){
-  mean(estimate - target)
+  mean(abs(estimate - target))
 }
 
 percent_bias = function(estimate, target){
   mean(100*((estimate - target)/target))
+}
+
+abs_percent_bias = function(estimate, target){
+  mean(100*(abs((estimate - target)/target)))
 }
 
 # Root-mean-squared-error
