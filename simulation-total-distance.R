@@ -133,7 +133,7 @@ sim_impfit = function(d_missing, level = "NULL", target_param, rep = 1){
   mids.pmm = mice(d_missing, seed = 1234, m = 5, print = FALSE)
   
   # complete case analysis
-  d.cc = na.omit(d_missing)
+  d.cc = d_missing %>% filter(!is.na(gps_td))
   
   # fit our models
   fit.mean.p_id = fit_glm(d.mean.p_id)
@@ -210,7 +210,7 @@ sim_imp = function(d_missing, level = "null", target, run = 1){
   mids.pmm = mice(d_missing, seed = 1234, m = 5, print = FALSE)
   
   # complete case analysis
-  d.cc = na.omit(d_missing)
+  d.cc = d_missing %>% filter(!is.na(gps_td))
   
   # add column of which row was imputed
   d.mean.p_id = d.mean.p_id %>% add_target_imp(., imp_rows_pos, target = target, method = "Mean Imputation - Mean per player")
