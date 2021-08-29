@@ -119,10 +119,13 @@ get_params = function(fit, method, pool = FALSE){
 # The final, helper function that performs all the imputations at once, given a dataset with missing
 # then, it fits a logistic regression model on the data
 # and outputs the needed model parameters for the validation of the imputation models
-sim_impfit = function(d_missing, target_param, type = "mcar", rep = 1){
+sim_impfit = function(d_missing, target_param, level = "NULL", rep = 1){
   
-  if(type == "mar"){
-    d_missing = d_missing %>% dplyr::select(-sex, -age, -freeday)
+  mar_vars = c("sex", "age", "freeday")
+  if(level == "light" | level == "medium"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars))
+  } else if(level == "strong"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars), -match) 
   }
   
   #-----------------impute using all the different methods
@@ -195,10 +198,13 @@ add_target_imp = function(d, imp_rows_pos, target, method){
 # a single dataset, and pooling might have to be manually implemented according to Ruben's rules.
 # The simulation is, experienced from our derived-variable substudy, not that computationally heavy,
 # and so I think this solution is fine, although it breaks the Do-not-Repeat-Yourself (DRY) Principle.
-sim_imp = function(d_missing, target, type = "mcar", run = 1){
+sim_imp = function(d_missing, target, level = "NULL", run = 1){
   
-  if(type == "mar"){
-    d_missing = d_missing %>% dplyr::select(-sex, -age, -freeday)
+  mar_vars = c("sex", "age", "freeday")
+  if(level == "light" | level == "medium"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars))
+  } else if(level == "strong"){
+    d_missing = d_missing %>% dplyr::select(-all_of(mar_vars), -match) 
   }
  
   # find which rows have missing and need imputation
@@ -297,16 +303,16 @@ sim_impute = function(missing, missing_amount, rep){
   
   if(missing == "mcar"){
   d_mcar = add_mcar_rpe(d_exdata_srpe, missing_amount)
-  d_sim_fits_mcar = sim_impfit(d_mcar, target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  d_sim_fits_mcar = sim_impfit(d_mcar, target_param = target_param, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
   saveRDS(d_sim_fits_mcar, file=paste0(folder_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds"))  
-  d_sim_imps_mcar = sim_imp(d_mcar, target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  d_sim_imps_mcar = sim_imp(d_mcar, target = target_col, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
   saveRDS(d_sim_imps_mcar, file=paste0(folder_imps, rep,"_d_srpe_imps_", missing, "_", missing_amount,".rds"))
   
   } else if(missing == "mar"){
   d_mar = add_mar_rpe(d_exdata_mar, missing_amount)
-  d_sim_fits_mar = sim_impfit(d_mar, target_param, type = "mar", rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  d_sim_fits_mar = sim_impfit(d_mar, target_param = target_param, level = missing_amount, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
   saveRDS(d_sim_fits_mar, file=paste0(folder_fits, rep,"_d_srpe_fits_", missing, "_", missing_amount,".rds")) 
-  d_sim_imps_mar = sim_imp(d_mar, target_col, type = "mar", rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
+  d_sim_imps_mar = sim_imp(d_mar, target = target_col, level = missing_amount, rep) %>% mutate(missing_type = missing, missing_amount = missing_amount)
   saveRDS(d_sim_imps_mar, file=paste0(folder_imps, rep,"_d_srpe_imps_", missing, "_", missing_amount,".rds"))
   }
 }
@@ -320,7 +326,7 @@ missing_prop_mar = c("light", "medium", "strong")
 # using just 1 core. See optional 
 # for-loop using multiple cores below
 options(warn=-1)
-set.seed = 1234
+set.seed(1234)
 n_sim = 1900
 for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
@@ -333,23 +339,23 @@ options(warn=0)
 #---------------------Optional: using multiple cores
 library(foreach) # for using multiple cores
 library(doParallel) # for using the cores in parallel
-numCores = 4 # or however many cores your computer has
+numCores = 4 # number of cores you wish to use
 n_sim = 1900
-set.seed = 1234
+set.seed(1234)
 registerDoParallel(numCores)
-foreach (i = 1:n_sim) %dopar% {
-  library(tidyverse)
-  library(mice)
-  purrr::walk(missing_prop_mcar, ~sim_impute("mcar", ., rep = i))
-  purrr::walk(missing_prop_mar, ~sim_impute("mar", ., rep = i))
-}
+#foreach (i = 1:n_sim) %dopar% {
+#  library(tidyverse)
+#  library(mice)
+#  purrr::walk(missing_prop_mcar, ~sim_impute("mcar", ., rep = i))
+#  purrr::walk(missing_prop_mar, ~sim_impute("mar", ., rep = i))
+#}
 
 #------------------------------------------------to check if having position changes the results
 folder_fits = paste0(base_folder, "srpe_fits_pos\\")
 folder_imps = paste0(base_folder, "srpe_imps_pos\\")
 
 options(warn=-1)
-set.seed = 1234
+set.seed(1234)
 n_sim = 1900
 for(i in 1:n_sim){
   # walk will run the function for each missing proportion in the vector
