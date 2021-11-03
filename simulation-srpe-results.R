@@ -310,19 +310,6 @@ for(i in 1:n_sim){
   d_imp = rbind(d_imp, temp_data_mcar, temp_data_mar)
 }
 
-# error in the imputation model caused regression imputation and PMM to have to be run again
-# replace old values with the new results after fixing the issue, then make the figures
-folder_imps = paste0(base_folder, "srpe_imps_mar\\")
-n_sim = 1
-# we assume it is the same number of simulations for both simulations
-# reading the simulated imputation datasets
-files_imps = list.files(path = folder_imps)
-d_imp = data.frame()
-for(i in 1:n_sim){
-  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_imps, i,"_d_srpe_fits_",.,".rds"))) %>% bind_rows()
-  d_imp_mar = rbind(d_imp, temp_data_mar)
-}
-
 d_imp = d_imp %>% mutate(index = 1:n())
 ting = d_imp %>% filter((method == "MI - PMM" | method == "Regression Imputation") & missing_type == "mar") 
 d_imp_mar = d_imp_mar %>% mutate(missing_type = "mar")
@@ -358,9 +345,27 @@ plot_mcar = ggplot(d_impdata, aes(x=srpe, group = dataset_n)) +
   coord_cartesian(xlim=c(NA, 1500), ylim = c(NA, 0.005))
 
 # Missing at Random
-d_realdata_mar = d_imp %>% filter(missing_type == "mar", missing_amount == "strong")
+
+folder_imps = paste0(base_folder, "srpe_imps_mar\\")
+n_sim = 1
+# we assume it is the same number of simulations for both simulations
+# reading the simulated imputation datasets
+files_imps = list.files(path = folder_imps)
+d_imp = data.frame()
+for(i in 1:n_sim){
+  temp_data_mar = map(missing_prop_mar, ~readRDS(paste0(folder_imps, i,"_d_srpe_fits_",.,".rds"))) %>% bind_rows()
+  d_imp_mar = rbind(d_imp, temp_data_mar)
+}
+
+d_imp_mar = d_imp_mar %>%
+  mutate(method = case_when(method == "Mean Imputation - Mean per player" ~ "Mean per player",
+                            method == "Mean Imputation - Mean per week" ~ "Mean per week",
+                            method == "MI - PMM" ~ "MI - Predicted Mean Matching",
+                            TRUE ~ method))
+
+d_realdata_mar = d_imp_mar %>% filter(missing_type == "mar", missing_amount == "strong")
 d_cc_target_mar =  d_realdata_mar %>% filter(method == "Mean per player") %>% select(target) %>% rownames_to_column()
-d_cc_mar = d_imp %>% filter(method == "Complete Case Analysis", missing_type == "mar", missing_amount == "strong") %>% select(-target)
+d_cc_mar = d_imp_mar %>% filter(method == "Complete Case Analysis", missing_type == "mar", missing_amount == "strong") %>% select(-target)
 d_cc_mar = d_cc_mar %>% rownames_to_column() %>% full_join(d_cc_target_mar, by = "rowname") %>% fill(method)
 d_realdata_mar = d_realdata_mar %>% filter(method != "Complete Case Analysis") %>% bind_rows(., d_cc_mar)
 d_imps_mar = d_imp %>% filter(method != "Complete Case Analysis", imp_place == 1, missing_type == "mar", missing_amount == "strong")
