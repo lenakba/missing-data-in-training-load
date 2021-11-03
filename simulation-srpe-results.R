@@ -182,7 +182,7 @@ dev.off()
 #--------------------------------Checking if having the player position changes anything
 # the code below can be skipped by reading in already combined data
 perf_estimates_srpe = read_delim("simulation_results_perfparams_srpe.csv", delim = ";") %>% mutate(var_extra = "Player position not available")
-perf_estimates_srpe_pos = read_delim("simulation_results_perfparams_srpe.csv", delim = ";") %>% mutate(var_extra = "Player position available")
+perf_estimates_srpe_pos = read_delim("simulation_results_perfparams_srpe_pos.csv", delim = ";") %>% mutate(var_extra = "Player position available")
 perf_estimates = bind_rows(perf_estimates_srpe, perf_estimates_srpe_pos)
 
 #--------------------fetching results from when position is among the variables in the imputation model
